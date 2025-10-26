@@ -1,0 +1,320 @@
+import { useEffect, useMemo, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { invoke } from "@tauri-apps/api/core";
+import { CHARACTERS, COSTUMES } from "@/constants/canon";
+import { open as pick } from "@tauri-apps/plugin-dialog";
+
+type ModType = "idle" | "cutscene" | "date" | "battle" | "ui" | "other";
+
+export type DraftMod = {
+  display_name: string;
+  folder_path: string;
+  author?: string;
+  download_url?: string;
+  mod_type: ModType;
+  character_id?: number | null;
+  costume_id?: number | null;
+  infer_confidence: number;
+};
+
+type Props = {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onCommitted: () => void;
+};
+
+export default function ImportWizard({
+  open,
+  onOpenChange,
+  onCommitted,
+}: Props) {
+  const [authorDir, setAuthorDir] = useState<string>("");
+  const [defaultAuthor, setDefaultAuthor] = useState<string>("");
+  const [defaultUrl, setDefaultUrl] = useState<string>("");
+  const [defaultType, setDefaultType] = useState<ModType>("other");
+  const [drafts, setDrafts] = useState<DraftMod[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  // When authorDir changes, prefill defaultAuthor from folder name.
+  useEffect(() => {
+    if (!authorDir) return;
+    const parts = authorDir.split(/[\\/]/).filter(Boolean);
+    const last = parts[parts.length - 1] || "";
+    if (last && !defaultAuthor) setDefaultAuthor(last);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authorDir]);
+
+  function costumesForChar(cid?: number | null) {
+    return COSTUMES.filter((c) => c.character_id === (cid ?? -1));
+  }
+
+  async function dryRun() {
+    if (!authorDir) return;
+    setBusy(true);
+    try {
+      const result = await invoke<DraftMod[]>("mods_import_dry_run", {
+        authorDir,
+        defaultAuthor: defaultAuthor || null,
+        defaultDownloadUrl: defaultUrl || null,
+        defaultModType: defaultType,
+      });
+      // Ensure numeric nulls are null, not undefined
+      //
+      const deduped = Array.from(
+        new Map(
+          result.map((r) => [r.folder_path, r]), // last one wins if duplicates
+        ).values(),
+      );
+      setDrafts(
+        deduped.map((r) => ({
+          ...r,
+          character_id: r.character_id ?? null,
+          costume_id: r.costume_id ?? null,
+        })),
+      );
+    } catch (e) {
+      console.error(e);
+      alert(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function commitAll() {
+    if (drafts.length === 0) {
+      onOpenChange(false);
+      return;
+    }
+    setBusy(true);
+    try {
+      // Send back the edited drafts
+      await invoke("mods_import_commit", { drafts });
+      onOpenChange(false);
+      onCommitted();
+    } catch (e) {
+      console.error(e);
+      alert(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function updateRow(i: number, patch: Partial<DraftMod>) {
+    setDrafts((prev) => {
+      const next = [...prev];
+      next[i] = { ...next[i], ...patch };
+      // Clear costume if character changed
+      if (patch.character_id !== undefined) {
+        next[i].costume_id = null;
+      }
+      return next;
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl text-zinc-100">
+        <DialogHeader>
+          <DialogTitle>Import Mods from Author Folder</DialogTitle>
+        </DialogHeader>
+
+        {/* Step 1: Pick author folder + defaults */}
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-3">
+              <div className="col-span-3">
+                <label className="text-xs text-zinc-300">
+                  Author folder (e.g., /mods/SomeAuthor)
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Absolute path to the author folder"
+                    value={authorDir}
+                    onChange={(e) => setAuthorDir(e.target.value)}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      const p = await pick({ directory: true });
+                      if (typeof p === "string") setAuthorDir(p);
+                    }}
+                  >
+                    Pick Folder
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-zinc-100">Default author</label>
+              <Input
+                value={defaultAuthor}
+                onChange={(e) => setDefaultAuthor(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-zinc-100">
+                Default download URL
+              </label>
+              <Input
+                value={defaultUrl}
+                onChange={(e) => setDefaultUrl(e.target.value)}
+                placeholder="https://..."
+              />
+            </div>
+            <div>
+              <label className="text-xs text-zinc-100">Default mod type</label>
+              <select
+                className="w-full rounded-md bg-zinc-900 border border-zinc-800 h-9 px-2 text-zinc-100 placeholder:text-zinc-500"
+                value={defaultType}
+                onChange={(e) => setDefaultType(e.target.value as ModType)}
+              >
+                <option value="other">other</option>
+                <option value="idle">idle</option>
+                <option value="cutscene">cutscene</option>
+                <option value="date">date</option>
+                <option value="battle">battle</option>
+                <option value="ui">ui</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={dryRun}
+              disabled={busy || !authorDir}
+            >
+              {busy ? "Scanning..." : "Scan Folder"}
+            </Button>
+          </div>
+        </div>
+
+        <Separator className="my-3" />
+
+        {/* Step 2: Edit drafts */}
+        <div className="max-h-[45vh] overflow-auto">
+          {drafts.length === 0 ? (
+            <div className="opacity-60 text-sm">
+              No drafts yet. Click “Scan Folder”.
+            </div>
+          ) : (
+            <div className="grid grid-cols-7 gap-2 text-sm">
+              <div className="font-medium">Display Name</div>
+              <div className="font-medium">Author</div>
+              <div className="font-medium">URL</div>
+              <div className="font-medium">Type</div>
+              <div className="font-medium">Character</div>
+              <div className="font-medium">Costume</div>
+              <div className="font-medium">Conf</div>
+
+              {drafts.map((d, i) => {
+                const charOptions = CHARACTERS;
+                const costumeOptions = costumesForChar(d.character_id ?? null);
+                return (
+                  <>
+                    <Input
+                      value={d.display_name}
+                      onChange={(e) =>
+                        updateRow(i, { display_name: e.target.value })
+                      }
+                    />
+                    <Input
+                      value={d.author || ""}
+                      onChange={(e) => updateRow(i, { author: e.target.value })}
+                    />
+                    <Input
+                      value={d.download_url || ""}
+                      onChange={(e) =>
+                        updateRow(i, { download_url: e.target.value })
+                      }
+                    />
+                    <select
+                      className="rounded-md bg-zinc-900 border border-zinc-800 h-9 px-2"
+                      value={d.mod_type}
+                      onChange={(e) =>
+                        updateRow(i, { mod_type: e.target.value as ModType })
+                      }
+                    >
+                      <option value="other">other</option>
+                      <option value="idle">idle</option>
+                      <option value="cutscene">cutscene</option>
+                      <option value="date">date</option>
+                      <option value="battle">battle</option>
+                      <option value="ui">ui</option>
+                    </select>
+
+                    <select
+                      className="rounded-md bg-zinc-900 border border-zinc-800 h-9 px-2"
+                      value={d.character_id ?? ""}
+                      onChange={(e) =>
+                        updateRow(i, {
+                          character_id: e.target.value
+                            ? Number(e.target.value)
+                            : null,
+                        })
+                      }
+                    >
+                      <option value="">(none)</option>
+                      {charOptions.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.display_name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      className="rounded-md bg-zinc-900 border border-zinc-800 h-9 px-2"
+                      value={d.costume_id ?? ""}
+                      onChange={(e) =>
+                        updateRow(i, {
+                          costume_id: e.target.value
+                            ? Number(e.target.value)
+                            : null,
+                        })
+                      }
+                      disabled={!d.character_id}
+                    >
+                      <option value="">(none)</option>
+                      {costumeOptions.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.display_name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="self-center text-xs opacity-70">
+                      {Math.round((d.infer_confidence || 0) * 100)}%
+                    </div>
+                  </>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="mt-3">
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            disabled={busy}
+          >
+            Cancel
+          </Button>
+          <Button onClick={commitAll} disabled={busy || drafts.length === 0}>
+            {busy ? "Saving..." : "Save All"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
