@@ -113,6 +113,7 @@ fn now_iso() -> String {
 fn con() -> Result<Connection> {
     let c = db::open_db()?;
     db::migrate(&c)?;
+    println!("[db] connection opened");
     Ok(c)
 }
 
@@ -135,11 +136,14 @@ fn mod_exists_by_path(conn: &rusqlite::Connection, fp_norm: &str) -> Result<bool
         .prepare("SELECT 1 FROM mods WHERE folder_path = ?1 LIMIT 1")
         .map_err(|e| e.to_string())?;
     let mut rows = stmt.query([fp_norm]).map_err(|e| e.to_string())?;
-    Ok(rows.next().map_err(|e| e.to_string())?.is_some())
+    let exists = rows.next().map_err(|e| e.to_string())?.is_some();
+    println!("[db] mod_exists_by_path path='{}' -> {}", fp_norm, exists);
+    Ok(exists)
 }
 
 #[tauri::command]
 pub fn db_init() -> Result<String, String> {
+    println!("[db_init] ensuring database ready");
     con().map(|_| "ok".to_string()).map_err(|e| e.to_string())
 }
 
@@ -147,6 +151,10 @@ pub fn db_init() -> Result<String, String> {
 pub fn mods_add(new_mod: NewMod) -> Result<i64, String> {
     let conn = con().map_err(|e| e.to_string())?;
     let now = now_iso();
+    println!(
+        "[mods_add] inserting manual mod display_name='{}' folder_path='{}'",
+        new_mod.display_name, new_mod.folder_path
+    );
     let mut stmt = conn
         .prepare(
             r#"
@@ -181,6 +189,10 @@ pub fn mods_add(new_mod: NewMod) -> Result<i64, String> {
 pub fn mods_list(filter: Option<ModFilter>) -> Result<Vec<ModRow>, String> {
     use rusqlite::{params, Rows};
 
+    println!(
+        "[mods_list] listing mods with filter={}",
+        filter.as_ref().map(|_| "some").unwrap_or("none")
+    );
     let conn = con().map_err(|e| e.to_string())?;
 
     // Normalize filter inputs; everything optional is allowed to be NULL.
@@ -248,6 +260,10 @@ pub fn mods_set_installed(
     target_path: Option<String>,
 ) -> Result<(), String> {
     use rusqlite::params;
+    println!(
+        "[mods_set_installed] id={} installed={} target_path={:?}",
+        id, installed, target_path
+    );
     let conn = con().map_err(|e| e.to_string())?;
     let now = now_iso();
 
@@ -276,6 +292,7 @@ pub fn mods_set_installed(
 
 #[tauri::command]
 pub fn settings_get() -> Result<AppSettings, String> {
+    println!("[settings_get] loading settings");
     let conn = con().map_err(|e| e.to_string())?;
     let val: Option<String> = conn
         .query_row(
@@ -293,6 +310,11 @@ pub fn settings_get() -> Result<AppSettings, String> {
 
 #[tauri::command]
 pub fn settings_set(new_settings: AppSettings) -> Result<AppSettings, String> {
+    println!(
+        "[settings_set] saving settings library_dirs={} game_mods_dir={:?}",
+        new_settings.library_dirs.len(),
+        new_settings.game_mods_dir
+    );
     let conn = con().map_err(|e| e.to_string())?;
     let json = serde_json::to_string(&new_settings).map_err(|e| e.to_string())?;
     conn.execute(
@@ -310,6 +332,7 @@ pub fn settings_set(new_settings: AppSettings) -> Result<AppSettings, String> {
 #[tauri::command]
 pub fn paths_rescan() -> Result<ScanSummary, String> {
     use walkdir::WalkDir;
+    println!("[paths_rescan] started");
     let conn = con().map_err(|e| e.to_string())?;
     let settings = settings_get()?;
 
@@ -350,6 +373,10 @@ pub fn paths_rescan() -> Result<ScanSummary, String> {
                 }
                 let display_name = mod_entry.file_name().to_string_lossy().to_string();
                 let folder_path = normalize_path_string(&mod_entry.path().to_string_lossy());
+                println!(
+                    "[paths_rescan] discovered author='{}' display='{}' folder='{}'",
+                    author, display_name, folder_path
+                );
                 discovered_mods += 1;
 
                 // Upsert (author + names)
@@ -391,6 +418,10 @@ pub fn mods_import_dry_run(
     default_mod_type: Option<String>,
 ) -> Result<Vec<DraftMod>, String> {
     use walkdir::WalkDir;
+    println!(
+        "[mods_import_dry_run] dir='{}' default_author={:?}",
+        author_dir, default_author
+    );
     let conn = con().map_err(|e| e.to_string())?;
     let chars = db_characters(&conn)?;
     let costumes = db_costumes(&conn)?;
@@ -445,6 +476,7 @@ pub fn mods_import_commit(drafts: Vec<DraftMod>) -> Result<(usize, usize), Strin
     use rusqlite::params;
     use std::collections::HashSet;
 
+    println!("[mods_import_commit] committing {} drafts", drafts.len());
     let mut conn = con().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     let now = now_iso();
@@ -459,61 +491,73 @@ pub fn mods_import_commit(drafts: Vec<DraftMod>) -> Result<(usize, usize), Strin
         let fp_norm = normalize_path_string(&d.folder_path);
         if !seen.insert(fp_norm.clone()) {
             // duplicate in same batch → skip
+            println!(
+                "[mods_import_commit] duplicate draft skipped for folder_path='{}'",
+                fp_norm
+            );
             continue;
         }
 
-        if mod_exists_by_path(&tx, &fp_norm)? {
-            // UPDATE existing row (always bump updated_at)
-            tx.execute(
-                r#"
-                UPDATE mods
-                SET display_name = ?2,
-                    author = ?3,
-                    download_url = ?4,
-                    character_id = ?5,
-                    costume_id = ?6,
-                    mod_type = ?7,
-                    updated_at = ?8
-                WHERE folder_path = ?1
-                "#,
-                params![
-                    fp_norm,
-                    d.display_name,
-                    d.author,
-                    d.download_url,
-                    d.character_id,
-                    d.costume_id,
-                    d.mod_type.to_string(),
-                    now
-                ],
-            )
-            .map_err(|e| e.to_string())?;
+        let existed = mod_exists_by_path(&tx, &fp_norm)?;
+        println!(
+            "[mods_import_commit] processing display='{}' path='{}' existed_in_db={}",
+            d.display_name, fp_norm, existed
+        );
+
+        tx.execute(
+            r#"
+            INSERT INTO mods (
+              character_id, costume_id, author, download_url, installed, installed_at,
+              target_path, mod_type, folder_path, display_name, created_at, updated_at
+            ) VALUES (?1, ?2, ?3, ?4, 0, NULL, NULL, ?5, ?6, ?7, ?8, ?8)
+            ON CONFLICT(folder_path) DO UPDATE SET
+              display_name = excluded.display_name,
+              author = excluded.author,
+              download_url = excluded.download_url,
+              character_id = excluded.character_id,
+              costume_id = excluded.costume_id,
+              mod_type = excluded.mod_type,
+              updated_at = excluded.updated_at
+            "#,
+            params![
+                d.character_id,
+                d.costume_id,
+                d.author,
+                d.download_url,
+                d.mod_type.to_string(),
+                fp_norm,
+                d.display_name,
+                now
+            ],
+        )
+        .map_err(|e| {
+            println!(
+                "[mods_import_commit] upsert FAILED path='{}' err={}",
+                fp_norm, e
+            );
+            e.to_string()
+        })?;
+
+        println!(
+            "[mods_import_commit] upsert success path='{}' action={}",
+            fp_norm,
+            if existed { "updated" } else { "inserted" }
+        );
+
+        if existed {
             updated += 1;
         } else {
-            // INSERT new row
-            tx.execute(
-                r#"
-                INSERT INTO mods (
-                  character_id, costume_id, author, download_url, installed, installed_at,
-                  target_path, mod_type, folder_path, display_name, created_at, updated_at
-                ) VALUES (?1, ?2, ?3, ?4, 0, NULL, NULL, ?5, ?6, ?7, ?8, ?8)
-                "#,
-                params![
-                    d.character_id,
-                    d.costume_id,
-                    d.author,
-                    d.download_url,
-                    d.mod_type.to_string(),
-                    fp_norm,
-                    d.display_name,
-                    now
-                ],
-            )
-            .map_err(|e| e.to_string())?;
             inserted += 1;
         }
     }
 
-    tx.commit().map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| {
+        println!("[mods_import_commit] commit FAILED err={}", e);
+        e.to_string()
+    })?;
+    println!(
+        "[mods_import_commit] done inserted={} updated={}",
+        inserted, updated
+    );
     Ok((inserted, updated))
 }

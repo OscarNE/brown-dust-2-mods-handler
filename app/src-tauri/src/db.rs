@@ -82,8 +82,22 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
 
     if current < 2 {
+        println!("[db::migrate] upgrading schema to v2 (unique folder paths)");
         conn.execute_batch(
             r#"
+                -- drop duplicate folder paths before enforcing uniqueness (keep latest updated_at)
+                WITH ranked AS (
+                    SELECT
+                        id,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY folder_path
+                            ORDER BY updated_at DESC, id DESC
+                        ) AS rn
+                    FROM mods
+                )
+                DELETE FROM mods
+                WHERE id IN (SELECT id FROM ranked WHERE rn > 1);
+
                 -- ensure each mod folder path is unique
                 CREATE UNIQUE INDEX IF NOT EXISTS mods_folder_path_unique ON mods(folder_path);
                 "#,
