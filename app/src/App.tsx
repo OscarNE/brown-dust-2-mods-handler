@@ -43,12 +43,9 @@ type ScanSummary = {
   upserts: number;
   errors: number;
 };
-
-type UiCrawlerSource = {
-  kind: "json" | "html";
-  url: string;
-  cfg_json?: any;
-  enabled: boolean;
+type CatalogReport = {
+  characters: number;
+  costumes: number;
 };
 
 export default function App() {
@@ -66,7 +63,7 @@ export default function App() {
     invoke<string>("app_version")
       .then(setVersion)
       .catch(() => setVersion("dev"));
-    invoke<string>("db_init");
+    invoke<string>("db_init").catch(console.error);
     loadSettings();
     refresh();
   }, []);
@@ -150,44 +147,23 @@ export default function App() {
     refresh();
   }
 
-  // state
-  const [sources, setSources] = useState<UiCrawlerSource[]>([]);
-
-  useEffect(() => {
-    (async () => {
-      const raw = await invoke<any[]>("crawler_get_sources").catch(() => []);
-      const mapped: UiCrawlerSource[] = (raw ?? []).map((s) => ({
-        kind: s?.kind === "html" ? "html" : "json",
-        url: String(s?.url ?? ""),
-        cfg_json: s?.cfg_json,
-        enabled: Boolean(s?.enabled),
-      }));
-      setSources(mapped);
-    })();
-  }, []);
-
-  // helpers
-  async function saveSources(next: UiCrawlerSource[]) {
-    await invoke("crawler_set_sources", { sources: next });
-    setSources(next);
-  }
-
-  async function addJsonSource() {
-    const url =
-      prompt(
-        "JSON URL (can be file://...):",
-        "file:///home/you/characters.json",
-      ) || "";
-    if (!url) return;
-    await saveSources([...sources, { kind: "json", url, enabled: true }]);
-  }
-  async function runCrawler() {
-    const res = await invoke<{
-      sources: number;
-      characters: number;
-      costumes: number;
-    }>("crawler_run_now");
-    alert(`Crawler: ${res.characters} characters, ${res.costumes} costumes`);
+  async function importCatalog() {
+    const picked = await open({
+      multiple: false,
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    if (!picked || typeof picked !== "string") return;
+    try {
+      const report = await invoke<CatalogReport>("catalog_import_from_file", {
+        path: picked,
+      });
+      alert(
+        `Catalog updated: ${report.characters} characters, ${report.costumes} costumes`,
+      );
+    } catch (e) {
+      console.error(e);
+      alert(String(e));
+    }
   }
 
   return (
@@ -246,36 +222,11 @@ export default function App() {
               </div>
 
               <div className="mt-4">
-                <div className="text-xs opacity-70 mb-1">Crawler sources</div>
-                <div className="space-y-2">
-                  {sources.map((s, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <Input readOnly value={`${s.kind} | ${s.url}`} />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          const next = sources.slice();
-                          next.splice(i, 1);
-                          await saveSources(next);
-                        }}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={addJsonSource}
-                    >
-                      Add JSON Source
-                    </Button>
-                    <Button size="sm" onClick={runCrawler}>
-                      Run Crawler
-                    </Button>
-                  </div>
+                <div className="text-xs opacity-70 mb-1">Catalog data</div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="secondary" onClick={importCatalog}>
+                    Import Catalog JSON
+                  </Button>
                 </div>
               </div>
 

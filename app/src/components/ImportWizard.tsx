@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,10 +10,27 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { invoke } from "@tauri-apps/api/core";
-import { CHARACTERS, COSTUMES } from "@/constants/canon";
 import { open as pick } from "@tauri-apps/plugin-dialog";
 
 type ModType = "idle" | "cutscene" | "date" | "battle" | "ui" | "other";
+
+type CatalogCharacter = {
+  id: number;
+  slug: string;
+  display_name: string;
+};
+
+type CatalogCostume = {
+  id: number;
+  character_id: number;
+  slug: string;
+  display_name: string;
+};
+
+type CatalogResponse = {
+  characters: CatalogCharacter[];
+  costumes: CatalogCostume[];
+};
 
 export type DraftMod = {
   display_name: string;
@@ -43,6 +60,26 @@ export default function ImportWizard({
   const [defaultType, setDefaultType] = useState<ModType>("other");
   const [drafts, setDrafts] = useState<DraftMod[]>([]);
   const [busy, setBusy] = useState(false);
+  const [characters, setCharacters] = useState<CatalogCharacter[]>([]);
+  const [costumes, setCostumes] = useState<CatalogCostume[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    refreshCatalog();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  async function refreshCatalog() {
+    try {
+      const res = await invoke<CatalogResponse>("catalog_list");
+      setCharacters(res.characters || []);
+      setCostumes(res.costumes || []);
+    } catch (e) {
+      console.error(e);
+      setCharacters([]);
+      setCostumes([]);
+    }
+  }
 
   // When authorDir changes, prefill defaultAuthor from folder name.
   useEffect(() => {
@@ -54,7 +91,8 @@ export default function ImportWizard({
   }, [authorDir]);
 
   function costumesForChar(cid?: number | null) {
-    return COSTUMES.filter((c) => c.character_id === (cid ?? -1));
+    if (!cid) return [];
+    return costumes.filter((c) => c.character_id === cid);
   }
 
   async function dryRun() {
@@ -68,7 +106,6 @@ export default function ImportWizard({
         defaultModType: defaultType,
       });
       // Ensure numeric nulls are null, not undefined
-      //
       const deduped = Array.from(
         new Map(
           result.map((r) => [r.folder_path, r]), // last one wins if duplicates
@@ -96,7 +133,6 @@ export default function ImportWizard({
     }
     setBusy(true);
     try {
-      // Send back the edited drafts
       await invoke("mods_import_commit", { drafts });
       onOpenChange(false);
       onCommitted();
@@ -112,7 +148,6 @@ export default function ImportWizard({
     setDrafts((prev) => {
       const next = [...prev];
       next[i] = { ...next[i], ...patch };
-      // Clear costume if character changed
       if (patch.character_id !== undefined) {
         next[i].costume_id = null;
       }
@@ -218,7 +253,6 @@ export default function ImportWizard({
               <div className="font-medium">Conf</div>
 
               {drafts.map((d, i) => {
-                const charOptions = CHARACTERS;
                 const costumeOptions = costumesForChar(d.character_id ?? null);
                 return (
                   <>
@@ -265,7 +299,7 @@ export default function ImportWizard({
                       }
                     >
                       <option value="">(none)</option>
-                      {charOptions.map((c) => (
+                      {characters.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.display_name}
                         </option>

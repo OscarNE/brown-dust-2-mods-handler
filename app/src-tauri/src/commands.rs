@@ -1,13 +1,12 @@
-use crate::crawler;
-use crate::types::CrawlerReport;
-use crate::types::DraftMod;
-use crate::types::{AppSettings, ScanSummary};
-use crate::types::{CrawlerSource, CrawlerStatus};
+use crate::catalog;
+use crate::types::{AppSettings, CatalogReport, DraftMod, ScanSummary};
 use anyhow::Result;
 use deunicode::deunicode;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 use rusqlite::{params, Connection, OptionalExtension};
+use serde::Serialize;
+use std::path::Path;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use crate::db;
@@ -147,7 +146,20 @@ fn mod_exists_by_path(conn: &rusqlite::Connection, fp_norm: &str) -> Result<bool
 #[tauri::command]
 pub fn db_init() -> Result<String, String> {
     println!("[db_init] ensuring database ready");
-    con().map(|_| "ok".to_string()).map_err(|e| e.to_string())
+    let conn = con().map_err(|e| e.to_string())?;
+    drop(conn);
+
+    match catalog::sync_builtin() {
+        Ok(report) => {
+            println!("[catalog] builtin sync characters={} costumes={}", report.characters, report.costumes);
+        }
+        Err(e) => {
+            eprintln!("[catalog] builtin sync failed: {}", e);
+            return Err(e);
+        }
+    }
+
+    Ok("ok".to_string())
 }
 
 #[tauri::command]
@@ -565,100 +577,58 @@ pub fn mods_import_commit(drafts: Vec<DraftMod>) -> Result<(usize, usize), Strin
     Ok((inserted, updated))
 }
 
+#[derive(Serialize)]
+pub struct CatalogCharacterRow {
+    pub id: i64,
+    pub slug: String,
+    pub display_name: String,
+}
+
+#[derive(Serialize)]
+pub struct CatalogCostumeRow {
+    pub id: i64,
+    pub character_id: i64,
+    pub slug: String,
+    pub display_name: String,
+}
+
+#[derive(Serialize)]
+pub struct CatalogListResponse {
+    pub characters: Vec<CatalogCharacterRow>,
+    pub costumes: Vec<CatalogCostumeRow>,
+}
+
 #[tauri::command]
-pub fn crawler_get_sources() -> Result<Vec<CrawlerSource>, String> {
-    let conn = con().map_err(|e| e.to_string())?;
-    let mut stmt = conn
-        .prepare("SELECT kind, url, cfg_json, enabled FROM crawler_sources ORDER BY id")
-        .map_err(|e| e.to_string())?;
-    let mut rows = stmt.query([]).map_err(|e| e.to_string())?;
-    let mut out = Vec::new();
-    while let Some(r) = rows.next().map_err(|e| e.to_string())? {
-        let kind: String = r.get(0).unwrap_or_default();
-        let url: String = r.get(1).unwrap_or_default();
-        let cfg: Option<String> = r.get(2).ok();
-        let enabled: i64 = r.get(3).unwrap_or(1);
-        out.push(CrawlerSource {
-            kind,
-            url,
-            cfg_json: cfg.and_then(|s| serde_json::from_str(&s).ok()),
-            enabled: enabled != 0,
-        });
+pub fn catalog_import_from_file(path: String) -> Result<CatalogReport, String> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return Err("path is empty".to_string());
     }
-    Ok(out)
+    let path = Path::new(trimmed);
+    println!("[catalog] importing from {}", path.display());
+    catalog::sync_from_path(path)
 }
 
 #[tauri::command]
-pub fn crawler_set_sources(sources: Vec<CrawlerSource>) -> Result<(), String> {
-    let mut conn = con().map_err(|e| e.to_string())?;
-    let tx = conn.transaction().map_err(|e| e.to_string())?;
-    tx.execute("DELETE FROM crawler_sources", [])
-        .map_err(|e| e.to_string())?;
-    for s in sources {
-        tx.execute(
-            "INSERT INTO crawler_sources (kind, url, cfg_json, enabled) VALUES (?1, ?2, ?3, ?4)",
-            rusqlite::params![
-                s.kind,
-                s.url,
-                s.cfg_json
-                    .as_ref()
-                    .map(|v| serde_json::to_string(v).unwrap_or("{}".to_string())),
-                if s.enabled { 1 } else { 0 },
-            ],
-        )
-        .map_err(|e| e.to_string())?;
-    }
-    tx.commit().map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn crawler_run_now() -> Result<CrawlerReport, String> {
-    // Fetch (async) using hard-coded source
-    let items = crawler::fetch_all_hardcoded()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    // Persist (sync)
-    let report = crawler::persist_crawled(items)?;
-
-    // Update last_run in metadata table if you still want that
-    let now = now_iso();
+pub fn catalog_list() -> Result<CatalogListResponse, String> {
     let conn = con().map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE crawler_sources SET last_run=?1, last_ok=1, last_error=NULL",
-        rusqlite::params![now],
-    )
-    .ok();
+    let chars = db_characters(&conn)?;
+    let costumes = db_costumes(&conn)?;
 
-    Ok(report)
-}
-
-#[tauri::command]
-pub fn crawler_status() -> Result<CrawlerStatus, String> {
-    let conn = con().map_err(|e| e.to_string())?;
-    let total: i64 = conn
-        .query_row("SELECT COUNT(*) FROM crawler_sources", [], |r| r.get(0))
-        .unwrap_or(0);
-    let enabled: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM crawler_sources WHERE enabled=1",
-            [],
-            |r| r.get(0),
-        )
-        .unwrap_or(0);
-    let last_run: Option<String> = conn
-        .query_row("SELECT MAX(last_run) FROM crawler_sources", [], |r| {
-            r.get(0)
-        })
-        .ok()
-        .unwrap_or(None);
-    let last_ok: Option<bool> = conn.query_row("SELECT last_ok FROM crawler_sources WHERE last_run = (SELECT MAX(last_run) FROM crawler_sources) LIMIT 1", [], |r| r.get::<_, Option<i64>>(0).map(|x| x.map(|v| v != 0))).unwrap_or(None);
-
-    Ok(CrawlerStatus {
-        total_sources: total as usize,
-        enabled_sources: enabled as usize,
-        last_run,
-        last_ok,
+    Ok(CatalogListResponse {
+        characters: chars
+            .into_iter()
+            .map(|(id, slug, display_name)| CatalogCharacterRow { id, slug, display_name })
+            .collect(),
+        costumes: costumes
+            .into_iter()
+            .map(|(id, character_id, slug, display_name)| CatalogCostumeRow {
+                id,
+                character_id,
+                slug,
+                display_name,
+            })
+            .collect(),
     })
 }
+

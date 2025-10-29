@@ -98,23 +98,7 @@ pub struct DraftMod {
     pub infer_confidence: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CrawlerSource {
-    pub kind: String, // "json" | "html"
-    pub url: String,
-    pub cfg_json: Option<serde_json::Value>,
-    pub enabled: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CrawlerStatus {
-    pub total_sources: usize,
-    pub enabled_sources: usize,
-    pub last_run: Option<String>,
-    pub last_ok: Option<bool>,
-}
-
-// For the crawler
+// Database helpers for catalog data
 use rusqlite::{params, Error, Transaction};
 
 /// Inserts or updates a character by slug, returns the character’s id.
@@ -181,35 +165,25 @@ pub fn upsert_alias(
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CrawledCostume {
+pub struct CatalogCostume {
     pub slug: String,
     pub display_name: String,
+    #[serde(default)]
     pub aliases: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CrawledCharacter {
+pub struct CatalogCharacter {
     pub slug: String,
     pub display_name: String,
+    #[serde(default)]
     pub aliases: Vec<String>,
-    pub costumes: Vec<CrawledCostume>,
+    #[serde(default)]
+    pub costumes: Vec<CatalogCostume>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CrawlerReport {
-    pub sources: usize,
+pub struct CatalogReport {
     pub characters: usize,
     pub costumes: usize,
-}
-
-// If you plan to make SourceCfg public (used by commands.rs, crawler.rs)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum SourceCfg {
-    Json {
-        url: String,
-    },
-    Html {
-        url: String,
-        cfg_json: serde_json::Value,
-    },
 }

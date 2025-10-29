@@ -42,7 +42,7 @@ pub fn migrate(conn: &Connection) -> Result<()> {
         // v1 schema
         conn.execute_batch(
             r#"
-            -- canonical lists (crawler-owned)
+            -- canonical lists (catalog managed)
             CREATE TABLE characters (
               id INTEGER PRIMARY KEY,
               slug TEXT UNIQUE NOT NULL,
@@ -106,7 +106,7 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     }
 
     if current < 3 {
-        println!("[db::migrate] upgrading schema to v3 (aliases & crawler sources)");
+        println!("[db::migrate] upgrading schema to v3 (aliases & legacy crawler sources)");
         conn.execute_batch(
             r#"
             -- store alternative names for characters & costumes
@@ -118,7 +118,7 @@ pub fn migrate(conn: &Connection) -> Result<()> {
               UNIQUE(entity_type, alias_text)
             );
 
-            -- crawler sources configuration & status
+            -- legacy crawler sources configuration & status
             CREATE TABLE IF NOT EXISTS crawler_sources (
               id INTEGER PRIMARY KEY,
               kind TEXT NOT NULL CHECK (kind IN ('json','html')),

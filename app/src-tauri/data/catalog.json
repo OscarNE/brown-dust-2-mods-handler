@@ -1,0 +1,1345 @@
+{
+  "characters": [
+    {
+      "slug": "lathel",
+      "display_name": "Lathel",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "medicinal-herb-tracker",
+          "display_name": "Medicinal Herb Tracker",
+          "aliases": []
+        },
+        {
+          "slug": "lonely-survivor",
+          "display_name": "Lonely Survivor",
+          "aliases": []
+        },
+        {
+          "slug": "dark-knight",
+          "display_name": "Dark Knight",
+          "aliases": []
+        },
+        {
+          "slug": "promise-of-vengeance",
+          "display_name": "Promise of Vengeance",
+          "aliases": []
+        },
+        {
+          "slug": "pool-party",
+          "display_name": "Pool Party",
+          "aliases": []
+        },
+        {
+          "slug": "homunculus",
+          "display_name": "Homunculus",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "justia",
+      "display_name": "Justia",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "knight-of-blood",
+          "display_name": "Knight of Blood",
+          "aliases": []
+        },
+        {
+          "slug": "white-reaper",
+          "display_name": "White Reaper",
+          "aliases": []
+        },
+        {
+          "slug": "blood-glutton",
+          "display_name": "Blood Glutton",
+          "aliases": []
+        },
+        {
+          "slug": "kendo-club",
+          "display_name": "Kendo Club",
+          "aliases": []
+        },
+        {
+          "slug": "pool-party",
+          "display_name": "Pool Party",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "scheherazade",
+      "display_name": "Scheherazade",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "lapis-witch",
+          "display_name": "Lapis Witch",
+          "aliases": []
+        },
+        {
+          "slug": "magic-school-professor",
+          "display_name": "Magic School Professor",
+          "aliases": []
+        },
+        {
+          "slug": "code-name-s",
+          "display_name": "Code Name S",
+          "aliases": []
+        },
+        {
+          "slug": "pool-party",
+          "display_name": "Pool Party",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "gray",
+      "display_name": "Gray",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "sharpshooter-of-the-mist",
+          "display_name": "Sharpshooter of the Mist",
+          "aliases": []
+        },
+        {
+          "slug": "vanguard",
+          "display_name": "Vanguard",
+          "aliases": []
+        },
+        {
+          "slug": "b-rank-manager",
+          "display_name": "B-Rank Manager",
+          "aliases": []
+        },
+        {
+          "slug": "pool-party",
+          "display_name": "Pool Party",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "rou",
+      "display_name": "Rou",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "white-cat",
+          "display_name": "White Cat",
+          "aliases": []
+        },
+        {
+          "slug": "nature-s-claw",
+          "display_name": "Nature's Claw",
+          "aliases": []
+        },
+        {
+          "slug": "red-riding-hood",
+          "display_name": "Red Riding Hood",
+          "aliases": []
+        },
+        {
+          "slug": "stray-cat",
+          "display_name": "Stray Cat",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "olstein",
+      "display_name": "Olstein",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "fiend-scholar",
+          "display_name": "Fiend Scholar",
+          "aliases": []
+        },
+        {
+          "slug": "sage-of-blue-clouds",
+          "display_name": "Sage of Blue Clouds",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "sylvia",
+      "display_name": "Sylvia",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "desert-flower",
+          "display_name": "Desert Flower",
+          "aliases": []
+        },
+        {
+          "slug": "admiral",
+          "display_name": "Admiral",
+          "aliases": []
+        },
+        {
+          "slug": "the-sword-queen",
+          "display_name": "The Sword Queen",
+          "aliases": []
+        },
+        {
+          "slug": "bikini-agent",
+          "display_name": "Bikini Agent",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "rubia",
+      "display_name": "Rubia",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "thorn-of-the-desert",
+          "display_name": "Thorn of the Desert",
+          "aliases": []
+        },
+        {
+          "slug": "empress-of-the-ocean",
+          "display_name": "Empress of the Ocean",
+          "aliases": []
+        },
+        {
+          "slug": "maid-name-c",
+          "display_name": "Maid Name C",
+          "aliases": []
+        },
+        {
+          "slug": "maid-bikini",
+          "display_name": "Maid Bikini",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "eclipse",
+      "display_name": "Eclipse",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "the-dimension-witch",
+          "display_name": "The Dimension Witch",
+          "aliases": []
+        },
+        {
+          "slug": "nightmare-bunny",
+          "display_name": "Nightmare Bunny",
+          "aliases": []
+        },
+        {
+          "slug": "beach-vacation",
+          "display_name": "Beach Vacation",
+          "aliases": []
+        },
+        {
+          "slug": "dream-bride",
+          "display_name": "Dream Bride",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "teresse",
+      "display_name": "Teresse",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "angel-of-destruction",
+          "display_name": "Angel of Destruction",
+          "aliases": []
+        },
+        {
+          "slug": "medical-club",
+          "display_name": "Medical Club",
+          "aliases": []
+        },
+        {
+          "slug": "beachside-angel",
+          "display_name": "Beachside Angel",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "liatris",
+      "display_name": "Liatris",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "rodev-s-star",
+          "display_name": "Rodev's Star",
+          "aliases": []
+        },
+        {
+          "slug": "neon-stalker",
+          "display_name": "Neon Stalker",
+          "aliases": []
+        },
+        {
+          "slug": "maid-name-r",
+          "display_name": "Maid Name R",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "alec",
+      "display_name": "Alec",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "the-destruction",
+          "display_name": "The Destruction",
+          "aliases": []
+        },
+        {
+          "slug": "sword-breaker",
+          "display_name": "Sword Breaker",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "seir",
+      "display_name": "Seir",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "demon-s-daughter",
+          "display_name": "Demon's Daughter",
+          "aliases": []
+        },
+        {
+          "slug": "b-rank-idol",
+          "display_name": "B-Rank Idol",
+          "aliases": []
+        },
+        {
+          "slug": "new-employee",
+          "display_name": "New Employee",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "celia",
+      "display_name": "Celia",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "the-curse",
+          "display_name": "The Curse",
+          "aliases": []
+        },
+        {
+          "slug": "descendant-of-the-great-witch",
+          "display_name": "Descendant of the Great Witch",
+          "aliases": []
+        },
+        {
+          "slug": "masquerade-bunny",
+          "display_name": "Masquerade Bunny",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "anastasia",
+      "display_name": "Anastasia",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "gentle-maid",
+          "display_name": "Gentle Maid",
+          "aliases": []
+        },
+        {
+          "slug": "fire-graffiti",
+          "display_name": "Fire Graffiti",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "lecliss",
+      "display_name": "Lecliss",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "killer-doll",
+          "display_name": "Killer Doll",
+          "aliases": []
+        },
+        {
+          "slug": "android-queen",
+          "display_name": "Android Queen",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "rafina",
+      "display_name": "Rafina",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "steel-engine",
+          "display_name": "Steel Engine",
+          "aliases": []
+        },
+        {
+          "slug": "code-name-a",
+          "display_name": "Code Name A",
+          "aliases": []
+        },
+        {
+          "slug": "game-club",
+          "display_name": "Game Club",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "elise",
+      "display_name": "Elise",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "lovely-lady",
+          "display_name": "Lovely Lady",
+          "aliases": []
+        },
+        {
+          "slug": "code-name-o",
+          "display_name": "Code Name O",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "helena",
+      "display_name": "Helena",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "top-idol",
+          "display_name": "Top Idol",
+          "aliases": []
+        },
+        {
+          "slug": "b-rank-idol",
+          "display_name": "B-Rank Idol",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "eleaneer",
+      "display_name": "Eleaneer",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "piercing-magic-bow",
+          "display_name": "Piercing Magic Bow",
+          "aliases": []
+        },
+        {
+          "slug": "b-rank-idol",
+          "display_name": "B-Rank Idol",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "angelica",
+      "display_name": "Angelica",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "pool-party",
+          "display_name": "Pool Party",
+          "aliases": []
+        },
+        {
+          "slug": "neon-savior",
+          "display_name": "Neon Savior",
+          "aliases": []
+        },
+        {
+          "slug": "the-fallen",
+          "display_name": "The Fallen",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "glacia",
+      "display_name": "Glacia",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "alice",
+          "display_name": "Alice",
+          "aliases": []
+        },
+        {
+          "slug": "disciplinary-committee",
+          "display_name": "Disciplinary Committee",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "ventana",
+      "display_name": "Ventana",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "snow-white",
+          "display_name": "Snow White",
+          "aliases": []
+        },
+        {
+          "slug": "comeback-idol",
+          "display_name": "Comeback Idol",
+          "aliases": []
+        },
+        {
+          "slug": "onsen-practitioner",
+          "display_name": "Onsen Practitioner",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "diana",
+      "display_name": "Diana",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "adventurer-of-the-unknown",
+          "display_name": "Adventurer of the Unknown",
+          "aliases": []
+        },
+        {
+          "slug": "anti-dystopia",
+          "display_name": "Anti-Dystopia",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "zenith",
+      "display_name": "Zenith",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "robin-hood",
+          "display_name": "Robin Hood",
+          "aliases": []
+        },
+        {
+          "slug": "poolside-guardian",
+          "display_name": "Poolside Guardian",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "yuri",
+      "display_name": "Yuri",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "whitebolt",
+          "display_name": "Whitebolt",
+          "aliases": []
+        },
+        {
+          "slug": "comeback-idol",
+          "display_name": "Comeback Idol",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "dalvi",
+      "display_name": "Dalvi",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "bright-moon",
+          "display_name": "Bright Moon",
+          "aliases": []
+        },
+        {
+          "slug": "summer-vacation-dalvi",
+          "display_name": "Summer Vacation Dalvi",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "nartas",
+      "display_name": "Nartas",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "anonymous-sage",
+          "display_name": "Anonymous Sage",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "granhildr",
+      "display_name": "Granhildr",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "comeback-idol",
+          "display_name": "Comeback Idol",
+          "aliases": []
+        },
+        {
+          "slug": "the-void",
+          "display_name": "The Void",
+          "aliases": []
+        },
+        {
+          "slug": "boo-ghost",
+          "display_name": "Boo Ghost",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "refithea",
+      "display_name": "Refithea",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "pure-white-blessing",
+          "display_name": "Pure White Blessing",
+          "aliases": []
+        },
+        {
+          "slug": "the-gluttonous",
+          "display_name": "The Gluttonous",
+          "aliases": []
+        },
+        {
+          "slug": "poolside-fairy",
+          "display_name": "Poolside Fairy",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "loen",
+      "display_name": "Loen",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "last-hope",
+          "display_name": "Last Hope",
+          "aliases": []
+        },
+        {
+          "slug": "track-and-field-team-member",
+          "display_name": "Track and Field Team Member",
+          "aliases": []
+        },
+        {
+          "slug": "celebrity-bunny",
+          "display_name": "Celebrity Bunny",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "roxy",
+      "display_name": "Roxy",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "respected-master",
+          "display_name": "Respected Master",
+          "aliases": []
+        },
+        {
+          "slug": "emerging-desire",
+          "display_name": "Emerging Desire",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "eris",
+      "display_name": "Eris",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "esteemed-adventurer",
+          "display_name": "Esteemed Adventurer",
+          "aliases": []
+        },
+        {
+          "slug": "your-very-own-cat",
+          "display_name": "Your Very Own Cat",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "venaka",
+      "display_name": "Venaka",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "dj",
+          "display_name": "DJ",
+          "aliases": []
+        },
+        {
+          "slug": "wind-dancer",
+          "display_name": "Wind Dancer",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "nebris",
+      "display_name": "Nebris",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "laid-back-lifeguard",
+          "display_name": "Laid-back Lifeguard",
+          "aliases": []
+        },
+        {
+          "slug": "labyrinth-gatekeeper",
+          "display_name": "Labyrinth Gatekeeper",
+          "aliases": []
+        },
+        {
+          "slug": "new-employee",
+          "display_name": "New Employee",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "sacred-justia",
+      "display_name": "Sacred Justia",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "reclaimed-destiny",
+          "display_name": "Reclaimed Destiny",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "levia",
+      "display_name": "Levia",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "track-and-field-team-captain",
+          "display_name": "Track and Field Team Captain",
+          "aliases": []
+        },
+        {
+          "slug": "night-of-jealousy",
+          "display_name": "Night of Jealousy",
+          "aliases": []
+        },
+        {
+          "slug": "overheat",
+          "display_name": "Overheat",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "morpeah",
+      "display_name": "Morpeah",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "beach-vacation",
+          "display_name": "Beach Vacation",
+          "aliases": []
+        },
+        {
+          "slug": "daydream-bunny",
+          "display_name": "Daydream Bunny",
+          "aliases": []
+        },
+        {
+          "slug": "apostle",
+          "display_name": "Apostle",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "michaela",
+      "display_name": "Michaela",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "beachside-justice",
+          "display_name": "Beachside Justice",
+          "aliases": []
+        },
+        {
+          "slug": "queen-of-signatures",
+          "display_name": "Queen of Signatures",
+          "aliases": []
+        },
+        {
+          "slug": "acting-archbishop",
+          "display_name": "Acting Archbishop",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "yomi",
+      "display_name": "Yomi",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "gentle-destroyer",
+          "display_name": "Gentle Destroyer",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "yozakura",
+      "display_name": "Yozakura",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "fist-of-conviction",
+          "display_name": "Fist of Conviction",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "hikage",
+      "display_name": "Hikage",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "kind-ruthlessness",
+          "display_name": "Kind Ruthlessness",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "yumi",
+      "display_name": "Yumi",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "dancing-snowflake",
+          "display_name": "Dancing Snowflake",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "luvencia",
+      "display_name": "Luvencia",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "deal-snatcher",
+          "display_name": "Deal Snatcher",
+          "aliases": []
+        },
+        {
+          "slug": "wild-dog",
+          "display_name": "Wild Dog",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "liberta",
+      "display_name": "Liberta",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "onsen-manager",
+          "display_name": "Onsen Manager",
+          "aliases": []
+        },
+        {
+          "slug": "dark-saintess",
+          "display_name": "Dark Saintess",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "blade",
+      "display_name": "Blade",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "apostle",
+          "display_name": "Apostle",
+          "aliases": []
+        },
+        {
+          "slug": "young-lady",
+          "display_name": "Young Lady",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "wilhelmina",
+      "display_name": "Wilhelmina",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "iron-monarch",
+          "display_name": "Iron Monarch",
+          "aliases": []
+        },
+        {
+          "slug": "water-park-queen",
+          "display_name": "Water Park Queen",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "goblin-slayer",
+      "display_name": "Goblin Slayer",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "orcbolg",
+          "display_name": "Orcbolg",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "priestess",
+      "display_name": "Priestess",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "earth-mother-believer",
+          "display_name": "Earth Mother Believer",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "high-elf-archer",
+      "display_name": "High Elf Archer",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "daughter-of-starwind",
+          "display_name": "Daughter of Starwind",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "sword-maiden",
+      "display_name": "Sword Maiden",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "supreme-god-archbishop",
+          "display_name": "Supreme God Archbishop",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "olivier",
+      "display_name": "Olivier",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "fallen-wings",
+          "display_name": "Fallen Wings",
+          "aliases": []
+        },
+        {
+          "slug": "apostle",
+          "display_name": "Apostle",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "sonya",
+      "display_name": "Sonya",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "shadowed-dream",
+          "display_name": "Shadowed Dream",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "tyr",
+      "display_name": "Tyr",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "starlight-guardian",
+          "display_name": "Starlight Guardian",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "darian",
+      "display_name": "Darian",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "prophetic-dream",
+          "display_name": "Prophetic Dream",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "lisianne",
+      "display_name": "Lisianne",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "wandering-priest",
+          "display_name": "Wandering Priest",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "bernie",
+      "display_name": "Bernie",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "righteous-raider-girl",
+          "display_name": "Righteous Raider Girl",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "layla",
+      "display_name": "Layla",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "anvil-of-creation",
+          "display_name": "Anvil of Creation",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "lucrezia",
+      "display_name": "Lucrezia",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "seductive-wings",
+          "display_name": "Seductive Wings",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "samay",
+      "display_name": "Samay",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "kind-liberator",
+          "display_name": "Kind Liberator",
+          "aliases": []
+        },
+        {
+          "slug": "kind-student",
+          "display_name": "Kind Student",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "kry",
+      "display_name": "Kry",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "liberated-marauder",
+          "display_name": "Liberated Marauder",
+          "aliases": []
+        },
+        {
+          "slug": "violent-student",
+          "display_name": "Violent Student",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "jayden",
+      "display_name": "Jayden",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "beautiful-girl-devotee",
+          "display_name": "Beautiful Girl Devotee",
+          "aliases": []
+        },
+        {
+          "slug": "manga-research-club",
+          "display_name": "Manga Research Club",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "andrew",
+      "display_name": "Andrew",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "loyal-butler",
+          "display_name": "Loyal Butler",
+          "aliases": []
+        },
+        {
+          "slug": "specialist",
+          "display_name": "Specialist",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "elpis",
+      "display_name": "Elpis",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "hand-of-salvation",
+          "display_name": "Hand of Salvation",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "fred",
+      "display_name": "Fred",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "lugo-defense-force",
+          "display_name": "Lugo Defense Force",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "gynt",
+      "display_name": "Gynt",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "lugo-hunter",
+          "display_name": "Lugo Hunter",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "remnunt",
+      "display_name": "Remnunt",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "combat-doctor",
+          "display_name": "Combat Doctor",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "maria",
+      "display_name": "Maria",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "archmage",
+          "display_name": "Archmage",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "arines",
+      "display_name": "Arines",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "priest-of-vitality",
+          "display_name": "Priest of Vitality",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "emma",
+      "display_name": "Emma",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "haggard-delinquent",
+          "display_name": "Haggard Delinquent",
+          "aliases": []
+        },
+        {
+          "slug": "school-queen",
+          "display_name": "School Queen",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "ingrid",
+      "display_name": "Ingrid",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "kardis-bullet",
+          "display_name": "Kardis' Bullet",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "cynthia",
+      "display_name": "Cynthia",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "warmth-within-the-severe-cold",
+          "display_name": "Warmth Within the Severe Cold",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "julie",
+      "display_name": "Julie",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "healer",
+          "display_name": "Healer",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "carlson",
+      "display_name": "Carlson",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "mercenary-knight",
+          "display_name": "Mercenary Knight",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "lydia",
+      "display_name": "Lydia",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "apprentice-spearman",
+          "display_name": "Apprentice Spearman",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "rigenette",
+      "display_name": "Rigenette",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "little-hunter",
+          "display_name": "Little Hunter",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "beatrice",
+      "display_name": "Beatrice",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "mighty-warrior-of-the-tribe",
+          "display_name": "Mighty Warrior of the Tribe",
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "slug": "wiggle",
+      "display_name": "Wiggle",
+      "aliases": [],
+      "costumes": [
+        {
+          "slug": "bomb-fanatic",
+          "display_name": "Bomb Fanatic",
+          "aliases": []
+        },
+        {
+          "slug": "bomb-in-the-hoodie",
+          "display_name": "Bomb in the Hoodie",
+          "aliases": []
+        }
+      ]
+    }
+  ]
+}
