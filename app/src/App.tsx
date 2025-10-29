@@ -44,6 +44,13 @@ type ScanSummary = {
   errors: number;
 };
 
+type UiCrawlerSource = {
+  kind: "json" | "html";
+  url: string;
+  cfg_json?: any;
+  enabled: boolean;
+};
+
 export default function App() {
   const [version, setVersion] = useState<string>("");
   const [mods, setMods] = useState<ModRow[]>([]);
@@ -143,6 +150,46 @@ export default function App() {
     refresh();
   }
 
+  // state
+  const [sources, setSources] = useState<UiCrawlerSource[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const raw = await invoke<any[]>("crawler_get_sources").catch(() => []);
+      const mapped: UiCrawlerSource[] = (raw ?? []).map((s) => ({
+        kind: s?.kind === "html" ? "html" : "json",
+        url: String(s?.url ?? ""),
+        cfg_json: s?.cfg_json,
+        enabled: Boolean(s?.enabled),
+      }));
+      setSources(mapped);
+    })();
+  }, []);
+
+  // helpers
+  async function saveSources(next: UiCrawlerSource[]) {
+    await invoke("crawler_set_sources", { sources: next });
+    setSources(next);
+  }
+
+  async function addJsonSource() {
+    const url =
+      prompt(
+        "JSON URL (can be file://...):",
+        "file:///home/you/characters.json",
+      ) || "";
+    if (!url) return;
+    await saveSources([...sources, { kind: "json", url, enabled: true }]);
+  }
+  async function runCrawler() {
+    const res = await invoke<{
+      sources: number;
+      characters: number;
+      costumes: number;
+    }>("crawler_run_now");
+    alert(`Crawler: ${res.characters} characters, ${res.costumes} costumes`);
+  }
+
   return (
     <div className="h-screen w-screen text-zinc-100">
       {/* Top bar */}
@@ -195,6 +242,40 @@ export default function App() {
                   <Button size="sm" onClick={addLibDir}>
                     Add Library Folder
                   </Button>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <div className="text-xs opacity-70 mb-1">Crawler sources</div>
+                <div className="space-y-2">
+                  {sources.map((s, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <Input readOnly value={`${s.kind} | ${s.url}`} />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          const next = sources.slice();
+                          next.splice(i, 1);
+                          await saveSources(next);
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={addJsonSource}
+                    >
+                      Add JSON Source
+                    </Button>
+                    <Button size="sm" onClick={runCrawler}>
+                      Run Crawler
+                    </Button>
+                  </div>
                 </div>
               </div>
 

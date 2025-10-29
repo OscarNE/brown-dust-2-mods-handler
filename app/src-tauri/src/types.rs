@@ -97,3 +97,119 @@ pub struct DraftMod {
     pub costume_id: Option<i64>,
     pub infer_confidence: f32,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrawlerSource {
+    pub kind: String, // "json" | "html"
+    pub url: String,
+    pub cfg_json: Option<serde_json::Value>,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrawlerStatus {
+    pub total_sources: usize,
+    pub enabled_sources: usize,
+    pub last_run: Option<String>,
+    pub last_ok: Option<bool>,
+}
+
+// For the crawler
+use rusqlite::{params, Error, Transaction};
+
+/// Inserts or updates a character by slug, returns the character’s id.
+pub fn upsert_character(
+    tx: &Transaction<'_>,
+    slug: &str,
+    display_name: &str,
+) -> Result<i64, Error> {
+    tx.execute(
+        r#"
+        INSERT INTO characters (slug, display_name)
+        VALUES (?1, ?2)
+        ON CONFLICT(slug) DO UPDATE SET display_name = excluded.display_name
+        "#,
+        params![slug, display_name],
+    )?;
+    tx.query_row(
+        "SELECT id FROM characters WHERE slug = ?1",
+        params![slug],
+        |r| r.get(0),
+    )
+}
+
+/// Inserts or updates a costume for a given character id, returns the costume’s id.
+pub fn upsert_costume(
+    tx: &Transaction<'_>,
+    character_id: i64,
+    slug: &str,
+    display_name: &str,
+) -> Result<i64, Error> {
+    tx.execute(
+        r#"
+        INSERT INTO costumes (character_id, slug, display_name)
+        VALUES (?1, ?2, ?3)
+        ON CONFLICT(character_id, slug) DO UPDATE SET display_name = excluded.display_name
+        "#,
+        params![character_id, slug, display_name],
+    )?;
+    tx.query_row(
+        "SELECT id FROM costumes WHERE character_id = ?1 AND slug = ?2",
+        params![character_id, slug],
+        |r| r.get(0),
+    )
+}
+
+/// Inserts an alias for a character or costume entity. `entity_type` should be "character" or "costume".
+pub fn upsert_alias(
+    tx: &Transaction<'_>,
+    entity_type: &str,
+    entity_id: i64,
+    alias: &str,
+) -> Result<(), Error> {
+    if alias.trim().is_empty() {
+        return Ok(());
+    }
+    tx.execute(
+        r#"
+        INSERT OR IGNORE INTO aliases (entity_type, entity_id, alias_text)
+        VALUES (?1, ?2, ?3)
+        "#,
+        params![entity_type, entity_id, alias],
+    )?;
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrawledCostume {
+    pub slug: String,
+    pub display_name: String,
+    pub aliases: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrawledCharacter {
+    pub slug: String,
+    pub display_name: String,
+    pub aliases: Vec<String>,
+    pub costumes: Vec<CrawledCostume>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrawlerReport {
+    pub sources: usize,
+    pub characters: usize,
+    pub costumes: usize,
+}
+
+// If you plan to make SourceCfg public (used by commands.rs, crawler.rs)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SourceCfg {
+    Json {
+        url: String,
+    },
+    Html {
+        url: String,
+        cfg_json: serde_json::Value,
+    },
+}

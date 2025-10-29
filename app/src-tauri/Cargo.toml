@@ -31,3 +31,8 @@ time = { version = "0.3", features = ["formatting"] }
 walkdir = "2"
 deunicode = "1"
 fuzzy-matcher = "0.3"
+reqwest = { version = "0.12", features = ["rustls-tls", "gzip", "json"] }
+scraper = "0.19"
+regex = "1"
+url = "2"
+headless_chrome = "1.0"

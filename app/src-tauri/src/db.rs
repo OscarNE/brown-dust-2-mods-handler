@@ -105,5 +105,36 @@ pub fn migrate(conn: &Connection) -> Result<()> {
         conn.execute("UPDATE _schema_version SET version=2 WHERE id=1;", [])?;
     }
 
+    if current < 3 {
+        println!("[db::migrate] upgrading schema to v3 (aliases & crawler sources)");
+        conn.execute_batch(
+            r#"
+            -- store alternative names for characters & costumes
+            CREATE TABLE IF NOT EXISTS aliases (
+              id INTEGER PRIMARY KEY,
+              entity_type TEXT NOT NULL CHECK (entity_type IN ('character','costume')),
+              entity_id INTEGER NOT NULL, -- references characters(id) or costumes(id)
+              alias_text TEXT NOT NULL,
+              UNIQUE(entity_type, alias_text)
+            );
+
+            -- crawler sources configuration & status
+            CREATE TABLE IF NOT EXISTS crawler_sources (
+              id INTEGER PRIMARY KEY,
+              kind TEXT NOT NULL CHECK (kind IN ('json','html')),
+              url TEXT NOT NULL,
+              cfg_json TEXT NOT NULL,         -- source-specific parse config
+              enabled INTEGER NOT NULL DEFAULT 1,
+              etag TEXT,
+              last_modified TEXT,
+              last_run TEXT,
+              last_ok INTEGER,
+              last_error TEXT
+            );
+            "#,
+        )?;
+        conn.execute("UPDATE _schema_version SET version=3 WHERE id=1;", [])?;
+    }
+
     Ok(())
 }
