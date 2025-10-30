@@ -58,6 +58,11 @@ const DEFAULT_TYPE_ALIASES: &[(&str, &str)] = &[
     ("swap", "swap"),
 ];
 
+const DEFAULT_AUTHOR_ALIASES: &[(&str, &str)] = &[
+    ("mrmiagi", "MrMiagi"),
+    // Add more aliases here as they become known
+];
+
 fn infer_mod_type(folder_name: &str) -> ModType {
     let normalized = deunicode(&folder_name.to_lowercase());
     let sanitized: String = normalized.chars().filter(|c| c.is_alphanumeric()).collect();
@@ -79,6 +84,30 @@ fn infer_mod_type(folder_name: &str) -> ModType {
         return ModType::from_str(ty);
     }
     ModType::Other
+}
+
+fn infer_author_name(folder_name: &str) -> String {
+    let normalized = deunicode(&folder_name.to_lowercase());
+    let sanitized: String = normalized.chars().filter(|c| c.is_alphanumeric()).collect();
+    if sanitized.is_empty() {
+        return "unknown".to_string();
+    }
+
+    let mut best_match: Option<(&str, &str)> = None;
+    for (alias, canonical) in DEFAULT_AUTHOR_ALIASES.iter().copied() {
+        if sanitized.contains(alias) {
+            match best_match {
+                Some((prev_alias, _)) if prev_alias.len() >= alias.len() => continue,
+                _ => best_match = Some((alias, canonical)),
+            }
+        }
+    }
+
+    if let Some((_, canonical)) = best_match {
+        canonical.to_string()
+    } else {
+        "unknown".to_string()
+    }
 }
 
 // temporary in-DB lists (later crawler fills)
@@ -371,17 +400,25 @@ pub fn settings_get() -> Result<AppSettings, String> {
         .optional()
         .map_err(|e| e.to_string())?;
 
-    Ok(val
+    let settings: AppSettings = val
         .and_then(|json| serde_json::from_str(&json).ok())
-        .unwrap_or_default())
+        .unwrap_or_default();
+    println!(
+        "[settings_get] loaded library_dirs={} game_mods_dir={:?} last_library_pick={:?}",
+        settings.library_dirs.len(),
+        settings.game_mods_dir,
+        settings.last_library_pick
+    );
+    Ok(settings)
 }
 
 #[tauri::command]
 pub fn settings_set(new_settings: AppSettings) -> Result<AppSettings, String> {
     println!(
-        "[settings_set] saving settings library_dirs={} game_mods_dir={:?}",
+        "[settings_set] saving settings library_dirs={} game_mods_dir={:?} last_library_pick={:?}",
         new_settings.library_dirs.len(),
-        new_settings.game_mods_dir
+        new_settings.game_mods_dir,
+        new_settings.last_library_pick
     );
     let conn = con().map_err(|e| e.to_string())?;
     let json = serde_json::to_string(&new_settings).map_err(|e| e.to_string())?;
@@ -413,6 +450,7 @@ pub fn paths_rescan() -> Result<ScanSummary, String> {
     for lib_root in settings.library_dirs.iter() {
         scanned_dirs += 1;
 
+        println!("[paths_rescan] scanning library root='{}'", lib_root);
         // Expect structure: lib_root/AuthorName/ModFolder
         for author_entry in WalkDir::new(lib_root).min_depth(1).max_depth(1) {
             let author_entry = match author_entry {
@@ -425,7 +463,8 @@ pub fn paths_rescan() -> Result<ScanSummary, String> {
             if !author_entry.file_type().is_dir() {
                 continue;
             }
-            let author = author_entry.file_name().to_string_lossy().to_string();
+            let author_folder = author_entry.file_name().to_string_lossy().to_string();
+            let author = infer_author_name(&author_folder);
 
             // Iterate mod folders inside this author folder
             for mod_entry in WalkDir::new(author_entry.path()).min_depth(1).max_depth(1) {
@@ -442,8 +481,8 @@ pub fn paths_rescan() -> Result<ScanSummary, String> {
                 let display_name = mod_entry.file_name().to_string_lossy().to_string();
                 let folder_path = normalize_path_string(&mod_entry.path().to_string_lossy());
                 println!(
-                    "[paths_rescan] discovered author='{}' display='{}' folder='{}'",
-                    author, display_name, folder_path
+                    "[paths_rescan] discovered author_folder='{}' author='{}' display='{}' folder='{}'",
+                    author_folder, author, display_name, folder_path
                 );
                 discovered_mods += 1;
 
@@ -494,12 +533,28 @@ pub fn mods_import_dry_run(
     let chars = db_characters(&conn)?;
     let costumes = db_costumes(&conn)?;
 
-    let author = default_author.or_else(|| {
-        std::path::Path::new(&author_dir)
-            .file_name()
-            .and_then(|s| s.to_str())
-            .map(|s| s.to_string())
-    });
+    let inferred_author = std::path::Path::new(&author_dir)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .map(|s| infer_author_name(s));
+
+    let author = default_author
+        .and_then(|raw| {
+            let trimmed = raw.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        })
+        .or(inferred_author)
+        .map(|name| {
+            if name.trim().is_empty() {
+                "unknown".to_string()
+            } else {
+                name
+            }
+        });
 
     let mut out = Vec::new();
     for entry in WalkDir::new(&author_dir).min_depth(1).max_depth(1) {

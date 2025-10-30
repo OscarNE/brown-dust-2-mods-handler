@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import ImportWizard from "@/components/ImportWizard";
+import SettingsDialog from "@/components/SettingsDialog";
 
 type ModType =
   | "idle"
@@ -17,15 +17,6 @@ type ModType =
   | "battle"
   | "ui"
   | "other";
-type NewMod = {
-  display_name: string;
-  folder_path: string;
-  author?: string;
-  download_url?: string;
-  character_id?: number;
-  costume_id?: number;
-  mod_type: ModType;
-};
 type ModRow = {
   id: number;
   display_name: string;
@@ -45,6 +36,7 @@ type AppSettings = {
   library_dirs: string[];
   game_mods_dir?: string | null;
   install_strategy?: string | null;
+  last_library_pick?: string | null;
 };
 type ScanSummary = {
   scanned_dirs: number;
@@ -64,9 +56,11 @@ export default function App() {
     library_dirs: [],
     game_mods_dir: null,
     install_strategy: "copy",
+    last_library_pick: null,
   });
   const [busy, setBusy] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     invoke<string>("app_version")
@@ -85,32 +79,43 @@ export default function App() {
 
   async function loadSettings() {
     const s = await invoke<AppSettings>("settings_get");
+    console.log("[settings] loaded settings", s);
     setSettings(s);
   }
 
   async function saveSettings(next: AppSettings) {
-    const s = await invoke<AppSettings>("settings_set", { newSettings: next });
-    setSettings(s);
+    console.log("[settings] saving settings payload", next);
+    setSettings(next);
+    try {
+      const s = await invoke<AppSettings>("settings_set", {
+        newSettings: next,
+      });
+      console.log("[settings] backend confirmed settings", s);
+      setSettings(s);
+    } catch (err) {
+      console.error("[settings] failed to persist settings", err);
+    }
   }
 
   async function addLibDir() {
+    console.log("[settings] add library folder triggered");
     const picked = await open({ directory: true, multiple: false });
-    if (!picked || typeof picked !== "string") return;
+    if (!picked || typeof picked !== "string") {
+      console.log("[settings] add library folder cancelled");
+      return;
+    }
+    console.log("[settings] selected library folder", picked);
     const next = {
       ...settings,
+      last_library_pick: picked,
       library_dirs: Array.from(
         new Set([...(settings.library_dirs || []), picked]),
       ),
     };
+    console.log("[settings] computed next settings", next);
     await saveSettings(next);
-  }
-
-  async function removeLibDir(idx: number) {
-    const next = {
-      ...settings,
-      library_dirs: (settings.library_dirs || []).filter((_, i) => i !== idx),
-    };
-    await saveSettings(next);
+    console.log("[settings] library directories", next.library_dirs);
+    await loadSettings();
   }
 
   async function pickGameDir() {
@@ -119,6 +124,10 @@ export default function App() {
     const next = { ...settings, game_mods_dir: picked };
     await saveSettings(next);
   }
+
+  useEffect(() => {
+    console.log("[settings] state applied", settings);
+  }, [settings]);
 
   async function rescan() {
     setBusy(true);
@@ -129,18 +138,6 @@ export default function App() {
     } finally {
       setBusy(false);
     }
-  }
-
-  async function addDummy() {
-    const m: NewMod = {
-      display_name: "Sample Mod A",
-      folder_path: "/path/to/modA",
-      author: "You",
-      download_url: "https://example.com/modA",
-      mod_type: "idle",
-    };
-    await invoke<number>("mods_add", { newMod: m });
-    refresh();
   }
 
   async function toggleInstall(mod: ModRow) {
@@ -181,11 +178,15 @@ export default function App() {
       <div className="h-12 border-b border-zinc-800 px-4 flex items-center justify-between bg-zinc-950/60 backdrop-blur">
         <div className="font-medium">Mod Manager (Tauri)</div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="secondary" onClick={addDummy}>
-            Add Dummy
-          </Button>
           <Button size="sm" onClick={() => setImportOpen(true)}>
             Import Mods
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setSettingsOpen(true)}
+          >
+            Settings
           </Button>
           <Button
             size="sm"
@@ -201,61 +202,9 @@ export default function App() {
 
       {/* Body grid */}
       <div className="h-[calc(100vh-3rem)] grid grid-cols-[35%_65%]">
-        {/* Left: Settings + List */}
-        <div className="h-full p-3 space-y-3">
-          <Card>
-            <CardHeader>
-              <CardTitle>Settings</CardTitle>
-            </CardHeader>
-            <Separator />
-            <CardContent className="space-y-3">
-              <div>
-                <div className="text-xs opacity-70 mb-1">Library folders</div>
-                <div className="space-y-2">
-                  {(settings.library_dirs || []).map((d, i) => (
-                    <div key={d} className="flex items-center gap-2">
-                      <Input readOnly value={d} />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => removeLibDir(i)}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                  <Button size="sm" onClick={addLibDir}>
-                    Add Library Folder
-                  </Button>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <div className="text-xs opacity-70 mb-1">Catalog data</div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="secondary" onClick={importCatalog}>
-                    Import Catalog JSON
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <div className="text-xs opacity-70 mb-1">Game mods folder</div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    readOnly
-                    value={settings.game_mods_dir || ""}
-                    placeholder="Not set"
-                  />
-                  <Button size="sm" onClick={pickGameDir}>
-                    Pick
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="h-[calc(100%-16rem)] overflow-hidden">
+        {/* Left: List */}
+        <div className="h-full p-3">
+          <Card className="h-full overflow-hidden">
             <CardHeader>
               <CardTitle>All Mods</CardTitle>
             </CardHeader>
@@ -313,6 +262,14 @@ export default function App() {
         open={importOpen}
         onOpenChange={setImportOpen}
         onCommitted={refresh}
+      />
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        settings={settings}
+        onAddLibraryDir={addLibDir}
+        onPickGameDir={pickGameDir}
+        onImportCatalog={importCatalog}
       />
     </div>
   );

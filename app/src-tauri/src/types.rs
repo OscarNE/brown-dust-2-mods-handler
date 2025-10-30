@@ -88,6 +88,7 @@ pub struct AppSettings {
     pub library_dirs: Vec<String>,
     pub game_mods_dir: Option<String>,
     pub install_strategy: Option<String>, // "copy" | "symlink" (later)
+    pub last_library_pick: Option<String>,
 }
 
 impl Default for AppSettings {
@@ -96,6 +97,7 @@ impl Default for AppSettings {
             library_dirs: vec![],
             game_mods_dir: None,
             install_strategy: Some("copy".into()),
+            last_library_pick: None,
         }
     }
 }

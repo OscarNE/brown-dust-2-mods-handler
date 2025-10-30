@@ -41,6 +41,31 @@ type CatalogResponse = {
   costumes: CatalogCostume[];
 };
 
+const AUTHOR_ALIASES: Record<string, string> = {
+  mrmiagi: "MrMiagi",
+  // Extend with more aliases as they become known
+};
+
+function inferAuthorFromFolderName(folderName: string): string {
+  const normalized = folderName
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const sanitized = normalized.replace(/[^a-z0-9]/g, "");
+  if (!sanitized) return "unknown";
+
+  let bestAlias: { alias: string; canonical: string } | null = null;
+  for (const [alias, canonical] of Object.entries(AUTHOR_ALIASES)) {
+    if (sanitized.includes(alias)) {
+      if (!bestAlias || alias.length > bestAlias.alias.length) {
+        bestAlias = { alias, canonical };
+      }
+    }
+  }
+
+  return bestAlias ? bestAlias.canonical : "unknown";
+}
+
 export type DraftMod = {
   display_name: string;
   folder_path: string;
@@ -89,13 +114,19 @@ export default function ImportWizard({
     }
   }
 
-  // When authorDir changes, prefill defaultAuthor from folder name.
+  // When authorDir changes, try to infer a sensible default author.
   useEffect(() => {
-    if (!authorDir) return;
+    if (!authorDir) {
+      setDefaultAuthor("");
+      return;
+    }
     const parts = authorDir.split(/[\\/]/).filter(Boolean);
     const last = parts[parts.length - 1] || "";
-    if (last && !defaultAuthor) setDefaultAuthor(last);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!last) {
+      setDefaultAuthor("");
+      return;
+    }
+    setDefaultAuthor(inferAuthorFromFolderName(last));
   }, [authorDir]);
 
   function costumesForChar(cid?: number | null) {
