@@ -22,7 +22,6 @@ type Props = {
   settings: SettingsData;
   onAddLibraryDir: () => void;
   onPickGameDir: () => void;
-  onImportCatalog: () => void;
 };
 
 export default function SettingsDialog({
@@ -31,7 +30,6 @@ export default function SettingsDialog({
   settings,
   onAddLibraryDir,
   onPickGameDir,
-  onImportCatalog,
 }: Props) {
   const libraries = settings.library_dirs || [];
   return (
@@ -44,50 +42,51 @@ export default function SettingsDialog({
         <div className="space-y-6">
           <section className="space-y-3">
             <div>
-              <div className="text-sm font-medium">Library folders</div>
+              <div className="text-sm font-medium">All Mods Folder</div>
               <div className="text-xs text-zinc-400">
-                Choose folders to scan for author sub-directories.
+                Folder where you store all your mods.
               </div>
             </div>
             <div className="space-y-2">
-              {libraries.length === 0 && (
-                <div className="text-xs text-zinc-400">
-                  No folders configured yet.
-                </div>
+              {libraries.length === 0 ? (
+                <Input readOnly value="" placeholder="No folder selected yet" />
+              ) : (
+                libraries.map((dir) => <Input key={dir} readOnly value={dir} />)
               )}
-              {libraries.map((dir) => (
-                <Input key={dir} readOnly value={dir} />
-              ))}
-              <Button size="sm" onClick={onAddLibraryDir}>
-                Add Library Folder
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={onAddLibraryDir}>
+                  Add Mods Folder
+                </Button>
+                <Button size="sm" variant="outline">
+                  Scan
+                </Button>
+              </div>
             </div>
           </section>
 
           <Separator />
 
           <section className="space-y-3">
-            <div className="text-sm font-medium">Catalog data</div>
-            <div className="flex gap-2">
-              <Button size="sm" variant="secondary" onClick={onImportCatalog}>
-                Import Catalog JSON
-              </Button>
+            <div>
+              <div className="text-sm font-medium">Game Mods Folder</div>
+              <div className="text-xs text-zinc-400">
+                Folder in the game where mods are to be installed.
+              </div>
             </div>
-          </section>
-
-          <Separator />
-
-          <section className="space-y-3">
-            <div className="text-sm font-medium">Game mods folder</div>
-            <div className="flex items-center gap-2">
+            <div className="space-y-2">
               <Input
                 readOnly
                 value={settings.game_mods_dir || ""}
-                placeholder="Not set"
+                placeholder="No folder selected yet"
               />
-              <Button size="sm" onClick={onPickGameDir}>
-                Pick
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={onPickGameDir}>
+                  Pick Game Folder
+                </Button>
+                <Button size="sm" variant="outline">
+                  Scan
+                </Button>
+              </div>
             </div>
           </section>
         </div>

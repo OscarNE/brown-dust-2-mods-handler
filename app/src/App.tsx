@@ -44,11 +44,6 @@ type ScanSummary = {
   upserts: number;
   errors: number;
 };
-type CatalogReport = {
-  characters: number;
-  costumes: number;
-};
-
 export default function App() {
   const [version, setVersion] = useState<string>("");
   const [mods, setMods] = useState<ModRow[]>([]);
@@ -153,25 +148,6 @@ export default function App() {
     refresh();
   }
 
-  async function importCatalog() {
-    const picked = await open({
-      multiple: false,
-      filters: [{ name: "JSON", extensions: ["json"] }],
-    });
-    if (!picked || typeof picked !== "string") return;
-    try {
-      const report = await invoke<CatalogReport>("catalog_import_from_file", {
-        path: picked,
-      });
-      alert(
-        `Catalog updated: ${report.characters} characters, ${report.costumes} costumes`,
-      );
-    } catch (e) {
-      console.error(e);
-      alert(String(e));
-    }
-  }
-
   return (
     <div className="h-screen w-screen text-zinc-100">
       {/* Top bar */}
@@ -269,7 +245,6 @@ export default function App() {
         settings={settings}
         onAddLibraryDir={addLibDir}
         onPickGameDir={pickGameDir}
-        onImportCatalog={importCatalog}
       />
     </div>
   );
