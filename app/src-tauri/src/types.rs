@@ -6,6 +6,9 @@ pub enum ModType {
     Idle,
     Cutscene,
     Date,
+    History,
+    Minigame,
+    Swap,
     Battle,
     Ui,
     Other,
@@ -17,11 +20,30 @@ impl ToString for ModType {
             ModType::Idle => "idle",
             ModType::Cutscene => "cutscene",
             ModType::Date => "date",
+            ModType::History => "history",
+            ModType::Minigame => "minigame",
+            ModType::Swap => "swap",
             ModType::Battle => "battle",
             ModType::Ui => "ui",
             ModType::Other => "other",
         }
         .to_string()
+    }
+}
+
+impl ModType {
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "idle" => ModType::Idle,
+            "cutscene" => ModType::Cutscene,
+            "date" => ModType::Date,
+            "history" => ModType::History,
+            "minigame" => ModType::Minigame,
+            "swap" => ModType::Swap,
+            "battle" => ModType::Battle,
+            "ui" => ModType::Ui,
+            _ => ModType::Other,
+        }
     }
 }
 

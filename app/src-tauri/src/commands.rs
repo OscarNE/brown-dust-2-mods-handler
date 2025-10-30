@@ -24,6 +24,63 @@ fn norm_tokens(s: &str) -> Vec<String> {
         .collect()
 }
 
+const DEFAULT_TYPE_ALIASES: &[(&str, &str)] = &[
+    // gameplay "idle" equivalents
+    ("idle", "idle"),
+    ("standing", "idle"),
+    ("stand", "idle"),
+    ("idleanim", "idle"),
+    ("loop", "idle"),
+    ("lobby", "idle"),
+    ("illustration", "idle"),
+    ("illust", "idle"),
+    // cutscenes
+    ("burst", "cutscene"),
+    ("cutscene", "cutscene"),
+    ("cut", "cutscene"),
+    ("cs", "cutscene"),
+    ("skillcut", "cutscene"),
+    ("stkillcut", "cutscene"),
+    ("skullcut", "cutscene"),
+    ("skillcit", "cutscene"),
+    ("specialillustration", "cutscene"),
+    ("specialillust", "cutscene"),
+    // history
+    ("history", "history"),
+    ("story", "history"),
+    ("plot", "history"),
+    // date
+    ("date", "date"),
+    ("dating", "date"),
+    // Minigame content
+    ("minigame", "minigame"),
+    // Different characters
+    ("swap", "swap"),
+];
+
+fn infer_mod_type(folder_name: &str) -> ModType {
+    let normalized = deunicode(&folder_name.to_lowercase());
+    let sanitized: String = normalized.chars().filter(|c| c.is_alphanumeric()).collect();
+    if sanitized.is_empty() {
+        return ModType::Other;
+    }
+
+    let mut best_match: Option<(&str, &str)> = None;
+    for (alias, ty) in DEFAULT_TYPE_ALIASES.iter().copied() {
+        if sanitized.contains(alias) {
+            match best_match {
+                Some((prev_alias, _)) if prev_alias.len() >= alias.len() => continue,
+                _ => best_match = Some((alias, ty)),
+            }
+        }
+    }
+
+    if let Some((_, ty)) = best_match {
+        return ModType::from_str(ty);
+    }
+    ModType::Other
+}
+
 // temporary in-DB lists (later crawler fills)
 fn db_characters(conn: &rusqlite::Connection) -> Result<Vec<(i64, String, String)>, String> {
     let mut out = Vec::new();
@@ -151,7 +208,10 @@ pub fn db_init() -> Result<String, String> {
 
     match catalog::sync_builtin() {
         Ok(report) => {
-            println!("[catalog] builtin sync characters={} costumes={}", report.characters, report.costumes);
+            println!(
+                "[catalog] builtin sync characters={} costumes={}",
+                report.characters, report.costumes
+            );
         }
         Err(e) => {
             eprintln!("[catalog] builtin sync failed: {}", e);
@@ -240,14 +300,7 @@ pub fn mods_list(filter: Option<ModFilter>) -> Result<Vec<ModRow>, String> {
     let mut out = Vec::new();
     while let Some(r) = rows.next().map_err(|e| e.to_string())? {
         let mod_type_s: String = r.get(7).map_err(|e| e.to_string())?;
-        let mt = match mod_type_s.as_str() {
-            "idle" => ModType::Idle,
-            "cutscene" => ModType::Cutscene,
-            "date" => ModType::Date,
-            "battle" => ModType::Battle,
-            "ui" => ModType::Ui,
-            _ => ModType::Other,
-        };
+        let mt = ModType::from_str(mod_type_s.as_str());
         out.push(ModRow {
             id: r.get(0).map_err(|e| e.to_string())?,
             display_name: r.get(1).map_err(|e| e.to_string())?,
@@ -430,7 +483,7 @@ pub fn mods_import_dry_run(
     author_dir: String,
     default_author: Option<String>,
     default_download_url: Option<String>,
-    default_mod_type: Option<String>,
+    _default_mod_type: Option<String>,
 ) -> Result<Vec<DraftMod>, String> {
     use walkdir::WalkDir;
     println!(
@@ -463,14 +516,7 @@ pub fn mods_import_dry_run(
         let (character_id, costume_id, conf) =
             infer_character_costume(&display_name, &chars, &costumes);
 
-        let mt = match default_mod_type.as_deref() {
-            Some("idle") => ModType::Idle,
-            Some("cutscene") => ModType::Cutscene,
-            Some("date") => ModType::Date,
-            Some("battle") => ModType::Battle,
-            Some("ui") => ModType::Ui,
-            _ => ModType::Other,
-        };
+        let mt = infer_mod_type(&display_name);
 
         out.push(DraftMod {
             display_name,
@@ -618,7 +664,11 @@ pub fn catalog_list() -> Result<CatalogListResponse, String> {
     Ok(CatalogListResponse {
         characters: chars
             .into_iter()
-            .map(|(id, slug, display_name)| CatalogCharacterRow { id, slug, display_name })
+            .map(|(id, slug, display_name)| CatalogCharacterRow {
+                id,
+                slug,
+                display_name,
+            })
             .collect(),
         costumes: costumes
             .into_iter()
@@ -631,4 +681,3 @@ pub fn catalog_list() -> Result<CatalogListResponse, String> {
             .collect(),
     })
 }
-

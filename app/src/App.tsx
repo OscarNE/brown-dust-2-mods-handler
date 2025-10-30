@@ -7,7 +7,16 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import ImportWizard from "@/components/ImportWizard";
 
-type ModType = "idle" | "cutscene" | "date" | "battle" | "ui" | "other";
+type ModType =
+  | "idle"
+  | "cutscene"
+  | "history"
+  | "date"
+  | "minigame"
+  | "swap"
+  | "battle"
+  | "ui"
+  | "other";
 type NewMod = {
   display_name: string;
   folder_path: string;

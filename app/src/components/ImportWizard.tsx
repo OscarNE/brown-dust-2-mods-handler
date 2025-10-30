@@ -12,7 +12,16 @@ import { Separator } from "@/components/ui/separator";
 import { invoke } from "@tauri-apps/api/core";
 import { open as pick } from "@tauri-apps/plugin-dialog";
 
-type ModType = "idle" | "cutscene" | "date" | "battle" | "ui" | "other";
+type ModType =
+  | "idle"
+  | "cutscene"
+  | "history"
+  | "date"
+  | "minigame"
+  | "swap"
+  | "battle"
+  | "ui"
+  | "other";
 
 type CatalogCharacter = {
   id: number;
@@ -57,7 +66,6 @@ export default function ImportWizard({
   const [authorDir, setAuthorDir] = useState<string>("");
   const [defaultAuthor, setDefaultAuthor] = useState<string>("");
   const [defaultUrl, setDefaultUrl] = useState<string>("");
-  const [defaultType, setDefaultType] = useState<ModType>("other");
   const [drafts, setDrafts] = useState<DraftMod[]>([]);
   const [busy, setBusy] = useState(false);
   const [characters, setCharacters] = useState<CatalogCharacter[]>([]);
@@ -103,7 +111,6 @@ export default function ImportWizard({
         authorDir,
         defaultAuthor: defaultAuthor || null,
         defaultDownloadUrl: defaultUrl || null,
-        defaultModType: defaultType,
       });
       // Ensure numeric nulls are null, not undefined
       const deduped = Array.from(
@@ -164,9 +171,9 @@ export default function ImportWizard({
 
         {/* Step 1: Pick author folder + defaults */}
         <div className="space-y-3">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-3">
-              <div className="col-span-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <div className="col-span-2">
                 <label className="text-xs text-zinc-300">
                   Author folder (e.g., /mods/SomeAuthor)
                 </label>
@@ -205,20 +212,9 @@ export default function ImportWizard({
                 placeholder="https://..."
               />
             </div>
-            <div>
-              <label className="text-xs text-zinc-100">Default mod type</label>
-              <select
-                className="w-full rounded-md bg-zinc-900 border border-zinc-800 h-9 px-2 text-zinc-100 placeholder:text-zinc-500"
-                value={defaultType}
-                onChange={(e) => setDefaultType(e.target.value as ModType)}
-              >
-                <option value="other">other</option>
-                <option value="idle">idle</option>
-                <option value="cutscene">cutscene</option>
-                <option value="date">date</option>
-                <option value="battle">battle</option>
-                <option value="ui">ui</option>
-              </select>
+            <div className="col-span-2 text-xs text-zinc-400">
+              Types are inferred from the folder name; adjust individual rows if
+              needed.
             </div>
           </div>
 
@@ -282,7 +278,10 @@ export default function ImportWizard({
                       <option value="other">other</option>
                       <option value="idle">idle</option>
                       <option value="cutscene">cutscene</option>
+                      <option value="history">history</option>
                       <option value="date">date</option>
+                      <option value="minigame">minigame</option>
+                      <option value="swap">swap</option>
                       <option value="battle">battle</option>
                       <option value="ui">ui</option>
                     </select>
