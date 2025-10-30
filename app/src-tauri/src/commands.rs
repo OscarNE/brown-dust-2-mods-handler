@@ -63,6 +63,12 @@ const DEFAULT_AUTHOR_ALIASES: &[(&str, &str)] = &[
     // Add more aliases here as they become known
 ];
 
+#[derive(Debug, Serialize)]
+pub struct AuthorFolder {
+    pub folder_path: String,
+    pub inferred_author: String,
+}
+
 fn infer_mod_type(folder_name: &str) -> ModType {
     let normalized = deunicode(&folder_name.to_lowercase());
     let sanitized: String = normalized.chars().filter(|c| c.is_alphanumeric()).collect();
@@ -432,6 +438,36 @@ pub fn settings_set(new_settings: AppSettings) -> Result<AppSettings, String> {
     )
     .map_err(|e| e.to_string())?;
     Ok(new_settings)
+}
+
+#[tauri::command]
+pub fn library_author_dirs(lib_root: String) -> Result<Vec<AuthorFolder>, String> {
+    use walkdir::WalkDir;
+    println!("[library_author_dirs] root='{}'", lib_root);
+    let mut out = Vec::new();
+    for entry in WalkDir::new(&lib_root).min_depth(1).max_depth(1) {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                println!(
+                    "[library_author_dirs] failed to access entry under '{}' err={}",
+                    lib_root, e
+                );
+                continue;
+            }
+        };
+        if !entry.file_type().is_dir() {
+            continue;
+        }
+        let folder_path = normalize_path_string(&entry.path().to_string_lossy());
+        let folder_name = entry.file_name().to_string_lossy().to_string();
+        let inferred = infer_author_name(&folder_name);
+        out.push(AuthorFolder {
+            folder_path,
+            inferred_author: inferred,
+        });
+    }
+    Ok(out)
 }
 
 #[tauri::command]

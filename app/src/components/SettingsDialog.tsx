@@ -22,6 +22,10 @@ type Props = {
   settings: SettingsData;
   onAddLibraryDir: () => void;
   onPickGameDir: () => void;
+  onScanLibraryDirs: () => void;
+  onScanGameMods: () => void;
+  scanLibraryDisabled?: boolean;
+  scanGameDisabled?: boolean;
 };
 
 export default function SettingsDialog({
@@ -30,6 +34,10 @@ export default function SettingsDialog({
   settings,
   onAddLibraryDir,
   onPickGameDir,
+  onScanLibraryDirs,
+  onScanGameMods,
+  scanLibraryDisabled = false,
+  scanGameDisabled = false,
 }: Props) {
   const libraries = settings.library_dirs || [];
   return (
@@ -57,7 +65,12 @@ export default function SettingsDialog({
                 <Button size="sm" onClick={onAddLibraryDir}>
                   Add Mods Folder
                 </Button>
-                <Button size="sm" variant="outline">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onScanLibraryDirs}
+                  disabled={scanLibraryDisabled || libraries.length === 0}
+                >
                   Scan
                 </Button>
               </div>
@@ -83,7 +96,12 @@ export default function SettingsDialog({
                 <Button size="sm" onClick={onPickGameDir}>
                   Pick Game Folder
                 </Button>
-                <Button size="sm" variant="outline">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onScanGameMods}
+                  disabled={scanGameDisabled}
+                >
                   Scan
                 </Button>
               </div>

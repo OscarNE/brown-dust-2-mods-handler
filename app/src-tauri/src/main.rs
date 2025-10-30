@@ -26,6 +26,7 @@ fn main() {
             commands::mods_import_commit,
             commands::catalog_import_from_file,
             commands::catalog_list,
+            commands::library_author_dirs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

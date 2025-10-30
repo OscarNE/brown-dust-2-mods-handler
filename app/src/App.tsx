@@ -44,6 +44,10 @@ type ScanSummary = {
   upserts: number;
   errors: number;
 };
+type AuthorFolder = {
+  folder_path: string;
+  inferred_author: string;
+};
 export default function App() {
   const [version, setVersion] = useState<string>("");
   const [mods, setMods] = useState<ModRow[]>([]);
@@ -56,6 +60,10 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [importMode, setImportMode] = useState<"single" | "bulk" | null>(null);
+  const [bulkQueue, setBulkQueue] = useState<AuthorFolder[]>([]);
+  const [bulkIndex, setBulkIndex] = useState(0);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   useEffect(() => {
     invoke<string>("app_version")
@@ -148,13 +156,100 @@ export default function App() {
     refresh();
   }
 
+  async function startBulkImportFromLibraries() {
+    if (bulkBusy || importMode === "bulk") {
+      console.log("[settings] bulk scan already running");
+      return;
+    }
+    const libs = settings.library_dirs || [];
+    if (libs.length === 0) {
+      alert("Add at least one mods folder first.");
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const queue: AuthorFolder[] = [];
+      const seenFolders = new Set<string>();
+      for (const dir of libs) {
+        try {
+          const authors = await invoke<AuthorFolder[]>("library_author_dirs", { libRoot: dir });
+          for (const author of authors) {
+            if (seenFolders.has(author.folder_path)) continue;
+            seenFolders.add(author.folder_path);
+            queue.push(author);
+          }
+        } catch (err) {
+          console.error("[settings] failed to list author folders", dir, err);
+        }
+      }
+      if (queue.length === 0) {
+        alert("No author folders found in your mods directories.");
+        setBulkQueue([]);
+        setImportMode(null);
+        setImportOpen(false);
+        return;
+      }
+      console.log(`[settings] queued ${queue.length} author folders for import`);
+      queue.sort((a, b) => a.folder_path.localeCompare(b.folder_path));
+      setBulkQueue(queue);
+      setBulkIndex(0);
+      setImportMode("bulk");
+      setSettingsOpen(false);
+      setImportOpen(true);
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  function advanceBulk() {
+    setImportOpen(false);
+    const nextIndex = bulkIndex + 1;
+    if (nextIndex >= bulkQueue.length) {
+      setImportMode(null);
+      setImportOpen(false);
+      setBulkQueue([]);
+      setBulkIndex(0);
+      return;
+    }
+    setBulkIndex(nextIndex);
+    console.log("[settings] moving to next author folder", bulkQueue[nextIndex]?.folder_path);
+    setTimeout(() => {
+      setImportOpen(true);
+    }, 0);
+  }
+
+  function handleWizardOpenChange(next: boolean) {
+    if (next) {
+      setImportOpen(true);
+      return;
+    }
+    if (importMode === "bulk") {
+      advanceBulk();
+    } else {
+      setImportOpen(false);
+      setImportMode(null);
+    }
+  }
+
+  const isBulkMode = importMode === "bulk" && bulkQueue.length > 0;
+  const currentBulk = isBulkMode && bulkIndex < bulkQueue.length ? bulkQueue[bulkIndex] : null;
+  const importWizardKey = isBulkMode
+    ? currentBulk?.folder_path ?? `bulk-${bulkIndex}`
+    : "single-import";
+
   return (
     <div className="h-screen w-screen text-zinc-100">
       {/* Top bar */}
       <div className="h-12 border-b border-zinc-800 px-4 flex items-center justify-between bg-zinc-950/60 backdrop-blur">
         <div className="font-medium">Mod Manager (Tauri)</div>
         <div className="flex items-center gap-2">
-          <Button size="sm" onClick={() => setImportOpen(true)}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setImportMode("single");
+              setImportOpen(true);
+            }}
+          >
             Import Mods
           </Button>
           <Button
@@ -235,9 +330,13 @@ export default function App() {
 
       {/* Render the dialog OUTSIDE the grid so it doesn't become a grid item */}
       <ImportWizard
+        key={importWizardKey}
         open={importOpen}
-        onOpenChange={setImportOpen}
+        onOpenChange={handleWizardOpenChange}
         onCommitted={refresh}
+        initialAuthorDir={isBulkMode ? currentBulk?.folder_path : undefined}
+        initialDefaultAuthor={isBulkMode ? currentBulk?.inferred_author : undefined}
+        autoScan={isBulkMode}
       />
       <SettingsDialog
         open={settingsOpen}
@@ -245,6 +344,10 @@ export default function App() {
         settings={settings}
         onAddLibraryDir={addLibDir}
         onPickGameDir={pickGameDir}
+        onScanLibraryDirs={startBulkImportFromLibraries}
+        onScanGameMods={() => console.log("[settings] game folder scan not implemented yet")}
+        scanLibraryDisabled={bulkBusy || importMode === "bulk"}
+        scanGameDisabled={!settings.game_mods_dir}
       />
     </div>
   );

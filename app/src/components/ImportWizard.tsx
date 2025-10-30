@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +43,23 @@ type CatalogResponse = {
 
 const AUTHOR_ALIASES: Record<string, string> = {
   mrmiagi: "MrMiagi",
+  yukiishida: "Yuk11sh1d4",
+  linr: "Linr",
+  hcoel: "HCoel",
+  hardcracker: "Hardcracker",
+  mrperhaps: "MrPerhaps",
+  nimloth: "Nimloth",
+  sloth: "Sloth",
+  synae: "Synae",
+  qi: "Qi齊",
+  anextra: "AnExtra",
+  hiccup: "Hiccup",
+  rikudouray: "RikudouRay",
+  muslimwomen: "Muslimwomen",
+  selin86: "Selin86",
+  mahdicc: "Mahdicc",
+  bbman: "BBman",
+  minki: "Minki",
   // Extend with more aliases as they become known
 };
 
@@ -81,12 +98,18 @@ type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onCommitted: () => void;
+  initialAuthorDir?: string;
+  initialDefaultAuthor?: string;
+  autoScan?: boolean;
 };
 
 export default function ImportWizard({
   open,
   onOpenChange,
   onCommitted,
+  initialAuthorDir,
+  initialDefaultAuthor,
+  autoScan = false,
 }: Props) {
   const [authorDir, setAuthorDir] = useState<string>("");
   const [defaultAuthor, setDefaultAuthor] = useState<string>("");
@@ -128,6 +151,50 @@ export default function ImportWizard({
     }
     setDefaultAuthor(inferAuthorFromFolderName(last));
   }, [authorDir]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (initialAuthorDir && initialAuthorDir !== authorDir) {
+      setAuthorDir(initialAuthorDir);
+    }
+  }, [open, initialAuthorDir]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (initialDefaultAuthor) {
+      setDefaultAuthor(initialDefaultAuthor);
+    }
+  }, [open, initialDefaultAuthor]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!initialAuthorDir) return;
+    setDrafts([]);
+    setDefaultUrl("");
+  }, [initialAuthorDir, open]);
+
+  const lastAutoScan = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      lastAutoScan.current = null;
+      return;
+    }
+    if (!autoScan) return;
+    if (!initialAuthorDir) return;
+    if (authorDir !== initialAuthorDir) return;
+    if (initialDefaultAuthor && defaultAuthor !== initialDefaultAuthor) return;
+    if (lastAutoScan.current === initialAuthorDir) return;
+    lastAutoScan.current = initialAuthorDir;
+    dryRun();
+  }, [
+    open,
+    autoScan,
+    authorDir,
+    initialAuthorDir,
+    initialDefaultAuthor,
+    defaultAuthor,
+  ]);
 
   function costumesForChar(cid?: number | null) {
     if (!cid) return [];
