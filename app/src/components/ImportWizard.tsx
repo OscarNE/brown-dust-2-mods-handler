@@ -101,6 +101,7 @@ type Props = {
   initialAuthorDir?: string;
   initialDefaultAuthor?: string;
   autoScan?: boolean;
+  onRememberAuthorDir?: (path: string, author: string) => void;
 };
 
 export default function ImportWizard({
@@ -110,6 +111,7 @@ export default function ImportWizard({
   initialAuthorDir,
   initialDefaultAuthor,
   autoScan = false,
+  onRememberAuthorDir,
 }: Props) {
   const [authorDir, setAuthorDir] = useState<string>("");
   const [defaultAuthor, setDefaultAuthor] = useState<string>("");
@@ -223,6 +225,12 @@ export default function ImportWizard({
           costume_id: r.costume_id ?? null,
         })),
       );
+      if (!autoScan && onRememberAuthorDir && authorDir) {
+        const parts = authorDir.split(/[\\/]/).filter(Boolean);
+        const last = parts[parts.length - 1] || authorDir;
+        const inferred = defaultAuthor || inferAuthorFromFolderName(last);
+        onRememberAuthorDir(authorDir, inferred);
+      }
     } catch (e) {
       console.error(e);
       alert(String(e));

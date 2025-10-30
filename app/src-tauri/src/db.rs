@@ -136,5 +136,18 @@ pub fn migrate(conn: &Connection) -> Result<()> {
         conn.execute("UPDATE _schema_version SET version=3 WHERE id=1;", [])?;
     }
 
+    if current < 4 {
+        println!("[db::migrate] upgrading schema to v4 (app settings)");
+        conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS settings (
+              key TEXT PRIMARY KEY,
+              value_json TEXT NOT NULL
+            );
+            "#,
+        )?;
+        conn.execute("UPDATE _schema_version SET version=4 WHERE id=1;", [])?;
+    }
+
     Ok(())
 }

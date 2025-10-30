@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -155,6 +155,16 @@ export default function App() {
     });
     refresh();
   }
+
+  const rememberAuthorDir = useCallback(
+    (dir: string) => {
+      if (!dir) return;
+      if (settings.last_library_pick === dir) return;
+      console.log("[settings] remembering author dir", dir);
+      void saveSettings({ ...settings, last_library_pick: dir });
+    },
+    [settings, saveSettings],
+  );
 
   async function startBulkImportFromLibraries() {
     if (bulkBusy || importMode === "bulk") {
@@ -334,9 +344,10 @@ export default function App() {
         open={importOpen}
         onOpenChange={handleWizardOpenChange}
         onCommitted={refresh}
-        initialAuthorDir={isBulkMode ? currentBulk?.folder_path : undefined}
+        initialAuthorDir={isBulkMode ? currentBulk?.folder_path : settings.last_library_pick || undefined}
         initialDefaultAuthor={isBulkMode ? currentBulk?.inferred_author : undefined}
         autoScan={isBulkMode}
+        onRememberAuthorDir={rememberAuthorDir}
       />
       <SettingsDialog
         open={settingsOpen}
