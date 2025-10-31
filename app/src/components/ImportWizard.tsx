@@ -270,178 +270,184 @@ export default function ImportWizard({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl text-zinc-100">
+      <DialogContent className="max-w-5xl max-h-[90vh] text-zinc-100 flex flex-col">
         <DialogHeader>
           <DialogTitle>Import Mods from Author Folder</DialogTitle>
         </DialogHeader>
 
-        {/* Step 1: Pick author folder + defaults */}
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
+        <div className="flex-1 overflow-auto space-y-4 pr-1">
+          {/* Step 1: Pick author folder + defaults */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <label className="text-xs text-zinc-300">
-                  Author folder (e.g., /mods/SomeAuthor)
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Absolute path to the author folder"
-                    value={authorDir}
-                    onChange={(e) => setAuthorDir(e.target.value)}
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={async () => {
-                      const p = await pick({ directory: true });
-                      if (typeof p === "string") setAuthorDir(p);
-                    }}
-                  >
-                    Pick Folder
-                  </Button>
+                <div className="col-span-2">
+                  <label className="text-xs text-zinc-300">
+                    Author folder (e.g., /mods/SomeAuthor)
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Absolute path to the author folder"
+                      value={authorDir}
+                      onChange={(e) => setAuthorDir(e.target.value)}
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        const p = await pick({ directory: true });
+                        if (typeof p === "string") setAuthorDir(p);
+                      }}
+                    >
+                      Pick Folder
+                    </Button>
+                  </div>
                 </div>
               </div>
+              <div>
+                <label className="text-xs text-zinc-100">Default author</label>
+                <Input
+                  value={defaultAuthor}
+                  onChange={(e) => setDefaultAuthor(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-zinc-100">
+                  Default download URL
+                </label>
+                <Input
+                  value={defaultUrl}
+                  onChange={(e) => setDefaultUrl(e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="col-span-2 text-xs text-zinc-400">
+                Types are inferred from the folder name; adjust individual rows
+                if needed.
+              </div>
             </div>
-            <div>
-              <label className="text-xs text-zinc-100">Default author</label>
-              <Input
-                value={defaultAuthor}
-                onChange={(e) => setDefaultAuthor(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-zinc-100">
-                Default download URL
-              </label>
-              <Input
-                value={defaultUrl}
-                onChange={(e) => setDefaultUrl(e.target.value)}
-                placeholder="https://..."
-              />
-            </div>
-            <div className="col-span-2 text-xs text-zinc-400">
-              Types are inferred from the folder name; adjust individual rows if
-              needed.
+
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={dryRun}
+                disabled={busy || !authorDir}
+              >
+                {busy ? "Scanning..." : "Scan Folder"}
+              </Button>
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={dryRun}
-              disabled={busy || !authorDir}
-            >
-              {busy ? "Scanning..." : "Scan Folder"}
-            </Button>
+          <Separator />
+
+          {/* Step 2: Edit drafts */}
+          <div className="max-h-[50vh] overflow-auto pr-1">
+            {drafts.length === 0 ? (
+              <div className="opacity-60 text-sm">
+                No drafts yet. Click “Scan Folder”.
+              </div>
+            ) : (
+              <div className="grid grid-cols-7 gap-2 text-sm">
+                <div className="font-medium">Display Name</div>
+                <div className="font-medium">Author</div>
+                <div className="font-medium">URL</div>
+                <div className="font-medium">Type</div>
+                <div className="font-medium">Character</div>
+                <div className="font-medium">Costume</div>
+                <div className="font-medium">Conf</div>
+
+                {drafts.map((d, i) => {
+                  const costumeOptions = costumesForChar(
+                    d.character_id ?? null,
+                  );
+                  return (
+                    <>
+                      <Input
+                        value={d.display_name}
+                        onChange={(e) =>
+                          updateRow(i, { display_name: e.target.value })
+                        }
+                      />
+                      <Input
+                        value={d.author || ""}
+                        onChange={(e) =>
+                          updateRow(i, { author: e.target.value })
+                        }
+                      />
+                      <Input
+                        value={d.download_url || ""}
+                        onChange={(e) =>
+                          updateRow(i, { download_url: e.target.value })
+                        }
+                      />
+                      <select
+                        className="rounded-md bg-zinc-900 border border-zinc-800 h-9 px-2"
+                        value={d.mod_type}
+                        onChange={(e) =>
+                          updateRow(i, { mod_type: e.target.value as ModType })
+                        }
+                      >
+                        <option value="other">other</option>
+                        <option value="idle">idle</option>
+                        <option value="cutscene">cutscene</option>
+                        <option value="history">history</option>
+                        <option value="date">date</option>
+                        <option value="minigame">minigame</option>
+                        <option value="swap">swap</option>
+                        <option value="battle">battle</option>
+                        <option value="ui">ui</option>
+                      </select>
+
+                      <select
+                        className="rounded-md bg-zinc-900 border border-zinc-800 h-9 px-2"
+                        value={d.character_id ?? ""}
+                        onChange={(e) =>
+                          updateRow(i, {
+                            character_id: e.target.value
+                              ? Number(e.target.value)
+                              : null,
+                          })
+                        }
+                      >
+                        <option value="">(none)</option>
+                        {characters.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.display_name}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        className="rounded-md bg-zinc-900 border border-zinc-800 h-9 px-2"
+                        value={d.costume_id ?? ""}
+                        onChange={(e) =>
+                          updateRow(i, {
+                            costume_id: e.target.value
+                              ? Number(e.target.value)
+                              : null,
+                          })
+                        }
+                        disabled={!d.character_id}
+                      >
+                        <option value="">(none)</option>
+                        {costumeOptions.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.display_name}
+                          </option>
+                        ))}
+                      </select>
+
+                      <div className="self-center text-xs opacity-70">
+                        {Math.round((d.infer_confidence || 0) * 100)}%
+                      </div>
+                    </>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
-        <Separator className="my-3" />
-
-        {/* Step 2: Edit drafts */}
-        <div className="max-h-[45vh] overflow-auto">
-          {drafts.length === 0 ? (
-            <div className="opacity-60 text-sm">
-              No drafts yet. Click “Scan Folder”.
-            </div>
-          ) : (
-            <div className="grid grid-cols-7 gap-2 text-sm">
-              <div className="font-medium">Display Name</div>
-              <div className="font-medium">Author</div>
-              <div className="font-medium">URL</div>
-              <div className="font-medium">Type</div>
-              <div className="font-medium">Character</div>
-              <div className="font-medium">Costume</div>
-              <div className="font-medium">Conf</div>
-
-              {drafts.map((d, i) => {
-                const costumeOptions = costumesForChar(d.character_id ?? null);
-                return (
-                  <>
-                    <Input
-                      value={d.display_name}
-                      onChange={(e) =>
-                        updateRow(i, { display_name: e.target.value })
-                      }
-                    />
-                    <Input
-                      value={d.author || ""}
-                      onChange={(e) => updateRow(i, { author: e.target.value })}
-                    />
-                    <Input
-                      value={d.download_url || ""}
-                      onChange={(e) =>
-                        updateRow(i, { download_url: e.target.value })
-                      }
-                    />
-                    <select
-                      className="rounded-md bg-zinc-900 border border-zinc-800 h-9 px-2"
-                      value={d.mod_type}
-                      onChange={(e) =>
-                        updateRow(i, { mod_type: e.target.value as ModType })
-                      }
-                    >
-                      <option value="other">other</option>
-                      <option value="idle">idle</option>
-                      <option value="cutscene">cutscene</option>
-                      <option value="history">history</option>
-                      <option value="date">date</option>
-                      <option value="minigame">minigame</option>
-                      <option value="swap">swap</option>
-                      <option value="battle">battle</option>
-                      <option value="ui">ui</option>
-                    </select>
-
-                    <select
-                      className="rounded-md bg-zinc-900 border border-zinc-800 h-9 px-2"
-                      value={d.character_id ?? ""}
-                      onChange={(e) =>
-                        updateRow(i, {
-                          character_id: e.target.value
-                            ? Number(e.target.value)
-                            : null,
-                        })
-                      }
-                    >
-                      <option value="">(none)</option>
-                      {characters.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.display_name}
-                        </option>
-                      ))}
-                    </select>
-
-                    <select
-                      className="rounded-md bg-zinc-900 border border-zinc-800 h-9 px-2"
-                      value={d.costume_id ?? ""}
-                      onChange={(e) =>
-                        updateRow(i, {
-                          costume_id: e.target.value
-                            ? Number(e.target.value)
-                            : null,
-                        })
-                      }
-                      disabled={!d.character_id}
-                    >
-                      <option value="">(none)</option>
-                      {costumeOptions.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.display_name}
-                        </option>
-                      ))}
-                    </select>
-
-                    <div className="self-center text-xs opacity-70">
-                      {Math.round((d.infer_confidence || 0) * 100)}%
-                    </div>
-                  </>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <DialogFooter className="mt-3">
+        <DialogFooter className="pt-3">
           <Button
             variant="ghost"
             onClick={() => onOpenChange(false)}

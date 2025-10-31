@@ -2,7 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import ImportWizard from "@/components/ImportWizard";
@@ -185,7 +191,9 @@ export default function App() {
       const seenFolders = new Set<string>();
       for (const dir of libs) {
         try {
-          const authors = await invoke<AuthorFolder[]>("library_author_dirs", { libRoot: dir });
+          const authors = await invoke<AuthorFolder[]>("library_author_dirs", {
+            libRoot: dir,
+          });
           for (const author of authors) {
             if (seenFolders.has(author.folder_path)) continue;
             seenFolders.add(author.folder_path);
@@ -202,7 +210,9 @@ export default function App() {
         setImportOpen(false);
         return;
       }
-      console.log(`[settings] queued ${queue.length} author folders for import`);
+      console.log(
+        `[settings] queued ${queue.length} author folders for import`,
+      );
       queue.sort((a, b) => a.folder_path.localeCompare(b.folder_path));
       setBulkQueue(queue);
       setBulkIndex(0);
@@ -225,7 +235,10 @@ export default function App() {
       return;
     }
     setBulkIndex(nextIndex);
-    console.log("[settings] moving to next author folder", bulkQueue[nextIndex]?.folder_path);
+    console.log(
+      "[settings] moving to next author folder",
+      bulkQueue[nextIndex]?.folder_path,
+    );
     setTimeout(() => {
       setImportOpen(true);
     }, 0);
@@ -266,9 +279,10 @@ export default function App() {
   }
 
   const isBulkMode = importMode === "bulk" && bulkQueue.length > 0;
-  const currentBulk = isBulkMode && bulkIndex < bulkQueue.length ? bulkQueue[bulkIndex] : null;
+  const currentBulk =
+    isBulkMode && bulkIndex < bulkQueue.length ? bulkQueue[bulkIndex] : null;
   const importWizardKey = isBulkMode
-    ? currentBulk?.folder_path ?? `bulk-${bulkIndex}`
+    ? (currentBulk?.folder_path ?? `bulk-${bulkIndex}`)
     : "single-import";
 
   return (
@@ -308,14 +322,14 @@ export default function App() {
       {/* Body grid */}
       <div className="h-[calc(100vh-3rem)] grid grid-cols-[35%_65%]">
         {/* Left: List */}
-        <div className="h-full p-3">
-          <Card className="h-full overflow-hidden">
+        <div className="h-full p-3 overflow-hidden">
+          <Card className="h-full overflow-hidden flex flex-col">
             <CardHeader>
               <CardTitle>All Mods</CardTitle>
             </CardHeader>
             <Separator />
-            <CardContent className="h-[calc(100%-4rem)] overflow-auto">
-              <ul className="space-y-2 text-sm">
+            <CardContent className="flex-1 overflow-auto pr-1">
+              <ul className="space-y-2 text-sm pr-1">
                 {mods.map((m) => (
                   <li
                     key={m.id}
@@ -349,13 +363,13 @@ export default function App() {
         </div>
 
         {/* Right: Preview placeholder */}
-        <div className="h-full p-3">
-          <Card className="h-full">
+        <div className="h-full p-3 overflow-hidden">
+          <Card className="h-full flex flex-col">
             <CardHeader>
               <CardTitle>Preview</CardTitle>
             </CardHeader>
             <Separator />
-            <CardContent className="h-[calc(100%-4rem)] grid place-items-center">
+            <CardContent className="flex-1 grid place-items-center">
               <div className="text-sm opacity-60">Select a mod</div>
             </CardContent>
           </Card>
@@ -368,8 +382,14 @@ export default function App() {
         open={importOpen}
         onOpenChange={handleWizardOpenChange}
         onCommitted={refresh}
-        initialAuthorDir={isBulkMode ? currentBulk?.folder_path : settings.last_library_pick || undefined}
-        initialDefaultAuthor={isBulkMode ? currentBulk?.inferred_author : undefined}
+        initialAuthorDir={
+          isBulkMode
+            ? currentBulk?.folder_path
+            : settings.last_library_pick || undefined
+        }
+        initialDefaultAuthor={
+          isBulkMode ? currentBulk?.inferred_author : undefined
+        }
         autoScan={isBulkMode}
         onRememberAuthorDir={rememberAuthorDir}
       />
@@ -380,7 +400,9 @@ export default function App() {
         onAddLibraryDir={addLibDir}
         onPickGameDir={pickGameDir}
         onScanLibraryDirs={startBulkImportFromLibraries}
-        onScanGameMods={() => console.log("[settings] game folder scan not implemented yet")}
+        onScanGameMods={() =>
+          console.log("[settings] game folder scan not implemented yet")
+        }
         onPurgeMods={handlePurgeMods}
         scanLibraryDisabled={bulkBusy || importMode === "bulk"}
         scanGameDisabled={!settings.game_mods_dir}
@@ -395,7 +417,10 @@ export default function App() {
         <DialogContent className="max-w-sm space-y-4 bg-zinc-950 text-zinc-100">
           <DialogHeader className="space-y-2">
             <DialogTitle className="text-red-400">Delete all mods?</DialogTitle>
-            <p className="text-xs text-zinc-400">This removes every mod entry from the local database. Installed files on disk stay untouched.</p>
+            <p className="text-xs text-zinc-400">
+              This removes every mod entry from the local database. Installed
+              files on disk stay untouched.
+            </p>
           </DialogHeader>
           <DialogFooter className="justify-end gap-2">
             <Button
