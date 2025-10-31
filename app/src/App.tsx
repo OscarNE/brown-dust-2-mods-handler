@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import ImportWizard from "@/components/ImportWizard";
@@ -64,6 +65,8 @@ export default function App() {
   const [bulkQueue, setBulkQueue] = useState<AuthorFolder[]>([]);
   const [bulkIndex, setBulkIndex] = useState(0);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [purgeBusy, setPurgeBusy] = useState(false);
+  const [purgeConfirmOpen, setPurgeConfirmOpen] = useState(false);
 
   useEffect(() => {
     invoke<string>("app_version")
@@ -157,7 +160,7 @@ export default function App() {
   }
 
   const rememberAuthorDir = useCallback(
-    (dir: string) => {
+    (dir: string, _author?: string) => {
       if (!dir) return;
       if (settings.last_library_pick === dir) return;
       console.log("[settings] remembering author dir", dir);
@@ -226,6 +229,27 @@ export default function App() {
     setTimeout(() => {
       setImportOpen(true);
     }, 0);
+  }
+
+  function handlePurgeMods() {
+    if (purgeBusy) return;
+    setPurgeConfirmOpen(true);
+  }
+
+  async function confirmPurgeMods() {
+    if (purgeBusy) return;
+    setPurgeBusy(true);
+    try {
+      const removed = await invoke<number>("mods_purge_all");
+      console.log(`[settings] purge removed ${removed} mods`);
+      refresh();
+      setPurgeConfirmOpen(false);
+    } catch (err) {
+      console.error("[settings] purge failed", err);
+      alert(String(err));
+    } finally {
+      setPurgeBusy(false);
+    }
   }
 
   function handleWizardOpenChange(next: boolean) {
@@ -357,9 +381,40 @@ export default function App() {
         onPickGameDir={pickGameDir}
         onScanLibraryDirs={startBulkImportFromLibraries}
         onScanGameMods={() => console.log("[settings] game folder scan not implemented yet")}
+        onPurgeMods={handlePurgeMods}
         scanLibraryDisabled={bulkBusy || importMode === "bulk"}
         scanGameDisabled={!settings.game_mods_dir}
+        purgeDisabled={purgeBusy}
       />
+      <Dialog
+        open={purgeConfirmOpen}
+        onOpenChange={(open) => {
+          if (!purgeBusy) setPurgeConfirmOpen(open);
+        }}
+      >
+        <DialogContent className="max-w-sm space-y-4 bg-zinc-950 text-zinc-100">
+          <DialogHeader className="space-y-2">
+            <DialogTitle className="text-red-400">Delete all mods?</DialogTitle>
+            <p className="text-xs text-zinc-400">This removes every mod entry from the local database. Installed files on disk stay untouched.</p>
+          </DialogHeader>
+          <DialogFooter className="justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setPurgeConfirmOpen(false)}
+              disabled={purgeBusy}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmPurgeMods}
+              disabled={purgeBusy}
+            >
+              {purgeBusy ? "Purging..." : "Yes, delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

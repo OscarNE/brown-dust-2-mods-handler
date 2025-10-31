@@ -101,7 +101,7 @@ type Props = {
   initialAuthorDir?: string;
   initialDefaultAuthor?: string;
   autoScan?: boolean;
-  onRememberAuthorDir?: (path: string, author: string) => void;
+  onRememberAuthorDir?: (path: string, author?: string) => void;
 };
 
 export default function ImportWizard({

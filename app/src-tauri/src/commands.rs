@@ -772,3 +772,15 @@ pub fn catalog_list() -> Result<CatalogListResponse, String> {
             .collect(),
     })
 }
+
+
+#[tauri::command]
+pub fn mods_purge_all() -> Result<usize, String> {
+    let conn = con().map_err(|e| e.to_string())?;
+    let affected = conn
+        .execute("DELETE FROM mods", [])
+        .map_err(|e| e.to_string())?;
+    println!("[mods_purge_all] deleted {} mods", affected);
+    Ok(affected as usize)
+}
+

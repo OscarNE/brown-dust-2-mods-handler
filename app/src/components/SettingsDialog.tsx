@@ -24,8 +24,10 @@ type Props = {
   onPickGameDir: () => void;
   onScanLibraryDirs: () => void;
   onScanGameMods: () => void;
+  onPurgeMods: () => void;
   scanLibraryDisabled?: boolean;
   scanGameDisabled?: boolean;
+  purgeDisabled?: boolean;
 };
 
 export default function SettingsDialog({
@@ -36,8 +38,10 @@ export default function SettingsDialog({
   onPickGameDir,
   onScanLibraryDirs,
   onScanGameMods,
+  onPurgeMods,
   scanLibraryDisabled = false,
   scanGameDisabled = false,
+  purgeDisabled = false,
 }: Props) {
   const libraries = settings.library_dirs || [];
   return (
@@ -107,6 +111,24 @@ export default function SettingsDialog({
               </div>
             </div>
           </section>
+
+          <Separator />
+
+          <section className="space-y-3 rounded-md border border-red-900/60 bg-red-950/20 p-3">
+            <div className="text-sm font-medium text-red-400">Danger Zone</div>
+            <div className="text-xs text-red-300">
+              Purging deletes every mod entry from the database. This cannot be undone.
+            </div>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={onPurgeMods}
+              disabled={purgeDisabled}
+            >
+              Purge Mods
+            </Button>
+          </section>
+
         </div>
 
         <DialogFooter className="mt-6">

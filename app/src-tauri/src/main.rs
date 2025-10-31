@@ -19,6 +19,7 @@ fn main() {
             commands::mods_add,
             commands::mods_list,
             commands::mods_set_installed,
+            commands::mods_purge_all,
             commands::settings_get,
             commands::settings_set,
             commands::paths_rescan,
