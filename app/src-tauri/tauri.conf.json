@@ -19,6 +19,10 @@
     ],
     "security": {
       "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      },
       "capabilities": ["core", "dialog"]
     }
   },

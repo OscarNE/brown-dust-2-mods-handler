@@ -16,6 +16,18 @@ type SettingsData = {
   last_library_pick?: string | null;
 };
 
+type PreviewProgressData = {
+  kind: "image" | "video";
+  status: "running" | "done" | "error";
+  total: number;
+  processed: number;
+  generated: number;
+  skipped: number;
+  errors: number;
+  current_mod?: string | null;
+  message?: string | null;
+};
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -28,6 +40,11 @@ type Props = {
   scanLibraryDisabled?: boolean;
   scanGameDisabled?: boolean;
   purgeDisabled?: boolean;
+  onCreatePreviewImages: () => void;
+  onCreatePreviewVideos: () => void;
+  createPreviewImagesDisabled?: boolean;
+  createPreviewVideosDisabled?: boolean;
+  previewProgress?: PreviewProgressData | null;
 };
 
 export default function SettingsDialog({
@@ -42,8 +59,31 @@ export default function SettingsDialog({
   scanLibraryDisabled = false,
   scanGameDisabled = false,
   purgeDisabled = false,
+  onCreatePreviewImages,
+  onCreatePreviewVideos,
+  createPreviewImagesDisabled = false,
+  createPreviewVideosDisabled = false,
+  previewProgress = null,
 }: Props) {
   const libraries = settings.library_dirs || [];
+  const progressPercent = previewProgress
+    ? previewProgress.total > 0
+      ? Math.min(
+          100,
+          Math.round((previewProgress.processed / previewProgress.total) * 100),
+        )
+      : previewProgress.status === "done"
+        ? 100
+        : 0
+    : 0;
+  const progressLabel =
+    previewProgress?.kind === "video" ? "Video previews" : "Image previews";
+  const statusLabel =
+    previewProgress?.status === "done"
+      ? "Completed"
+      : previewProgress?.status === "error"
+        ? "Error"
+        : "In progress";
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl text-zinc-100">
@@ -114,10 +154,76 @@ export default function SettingsDialog({
 
           <Separator />
 
+          <section className="space-y-3">
+            <div>
+              <div className="text-sm font-medium">Preview Assets</div>
+              <div className="text-xs text-zinc-400">
+                Generate missing previews for each registered mod folder.
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                onClick={onCreatePreviewImages}
+                disabled={createPreviewImagesDisabled}
+              >
+                {createPreviewImagesDisabled
+                  ? "Generating..."
+                  : "Create preview images"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onCreatePreviewVideos}
+                disabled={createPreviewVideosDisabled}
+              >
+                {createPreviewVideosDisabled
+                  ? "Generating..."
+                  : "Create preview videos"}
+              </Button>
+            </div>
+            {previewProgress && (
+              <div className="space-y-2 rounded-md border border-zinc-800/60 bg-zinc-900/40 p-3">
+                <div className="flex items-center justify-between text-xs text-zinc-400">
+                  <span>{progressLabel}</span>
+                  <span>
+                    {statusLabel}
+                    {previewProgress.status === "running" &&
+                    previewProgress.total > 0
+                      ? ` ${progressPercent}%`
+                      : ""}
+                  </span>
+                </div>
+                <div className="h-2 w-full rounded bg-zinc-800">
+                  <div
+                    className={`h-2 rounded transition-all ${previewProgress.status === "error" ? "bg-red-500" : "bg-emerald-500"}`}
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                <div className="text-xs text-zinc-500">
+                  {previewProgress.processed}/{previewProgress.total} • generated {previewProgress.generated} • skipped {previewProgress.skipped} • errors {previewProgress.errors}
+                </div>
+                {previewProgress.current_mod ? (
+                  <div className="text-xs text-zinc-400 truncate">
+                    Current: {previewProgress.current_mod}
+                  </div>
+                ) : null}
+                {previewProgress.message ? (
+                  <div className="text-xs text-amber-300">
+                    {previewProgress.message}
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </section>
+
+          <Separator />
+
           <section className="space-y-3 rounded-md border border-red-900/60 bg-red-950/20 p-3">
             <div className="text-sm font-medium text-red-400">Danger Zone</div>
             <div className="text-xs text-red-300">
-              Purging deletes every mod entry from the database. This cannot be undone.
+              Purging deletes every mod entry from the database. This cannot be
+              undone.
             </div>
             <Button
               size="sm"
@@ -128,7 +234,6 @@ export default function SettingsDialog({
               Purge Mods
             </Button>
           </section>
-
         </div>
 
         <DialogFooter className="mt-6">

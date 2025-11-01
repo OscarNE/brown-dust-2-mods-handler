@@ -6,7 +6,12 @@ use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
-use std::path::Path;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
+use tauri::{Emitter, Window};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use crate::db;
@@ -67,6 +72,40 @@ const DEFAULT_AUTHOR_ALIASES: &[(&str, &str)] = &[
 pub struct AuthorFolder {
     pub folder_path: String,
     pub inferred_author: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PreviewGenerationSummary {
+    pub generated: usize,
+    pub skipped: usize,
+    pub errors: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PreviewInfo {
+    pub has_image: bool,
+    pub has_video: bool,
+    pub image_path: Option<String>,
+    pub video_path: Option<String>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+struct PreviewProgressEvent<'a> {
+    kind: &'a str,
+    status: &'a str,
+    total: usize,
+    processed: usize,
+    generated: usize,
+    skipped: usize,
+    errors: usize,
+    current_mod: Option<String>,
+    message: Option<String>,
+}
+
+struct PreviewTarget {
+    id: i64,
+    display_name: String,
+    folder_path: String,
 }
 
 fn infer_mod_type(folder_name: &str) -> ModType {
@@ -225,6 +264,378 @@ fn normalize_path_string(p: &str) -> String {
     }
 }
 
+fn tools_dir() -> Result<PathBuf, String> {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let app_dir = manifest_dir
+        .parent()
+        .ok_or_else(|| "Failed to resolve tools directory (app dir missing)".to_string())?;
+    let repo_root = app_dir
+        .parent()
+        .ok_or_else(|| "Failed to resolve tools directory (repo root missing)".to_string())?;
+    Ok(repo_root.join("tools"))
+}
+
+fn locate_preview_tool() -> Result<PathBuf, String> {
+    let dir = tools_dir()?;
+    let entries = fs::read_dir(&dir)
+        .map_err(|e| format!("Failed to read tools dir '{}': {}", dir.display(), e))?;
+
+    let mut candidates: Vec<PathBuf> = entries
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.file_type().map(|ft| ft.is_file()).unwrap_or(false))
+        .map(|entry| entry.path())
+        .filter(|path| {
+            if let Some(name) = path.file_name().and_then(|f| f.to_str()) {
+                name.starts_with("create_preview") && name.ends_with(".jar")
+            } else {
+                false
+            }
+        })
+        .collect();
+
+    if candidates.is_empty() {
+        return Err("No create_preview*.jar found in tools directory".into());
+    }
+
+    candidates.sort();
+    Ok(candidates
+        .into_iter()
+        .last()
+        .expect("candidates is not empty so last() is Some"))
+}
+
+#[derive(Clone, Copy, Debug)]
+enum PreviewKind {
+    Image,
+    Video,
+}
+
+impl PreviewKind {
+    fn target_name(self) -> &'static str {
+        match self {
+            PreviewKind::Image => "preview.png",
+            PreviewKind::Video => "preview.mp4",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            PreviewKind::Image => "image",
+            PreviewKind::Video => "video",
+        }
+    }
+}
+
+fn emit_preview_progress(
+    window: &Window,
+    kind: PreviewKind,
+    status: &'static str,
+    total: usize,
+    processed: usize,
+    generated: usize,
+    skipped: usize,
+    errors: usize,
+    current_mod: Option<String>,
+    message: Option<String>,
+) {
+    let payload = PreviewProgressEvent {
+        kind: kind.label(),
+        status,
+        total,
+        processed,
+        generated,
+        skipped,
+        errors,
+        current_mod,
+        message,
+    };
+    if let Err(err) = window.emit("preview-progress", payload) {
+        println!(
+            "[preview] failed to emit progress event for {:?}: {}",
+            kind, err
+        );
+    }
+}
+
+fn collect_preview_targets(conn: &Connection) -> Result<Vec<PreviewTarget>, String> {
+    let mut stmt = conn
+        .prepare("SELECT id, display_name, folder_path FROM mods ORDER BY display_name ASC")
+        .map_err(|e| e.to_string())?;
+    let mut rows = stmt.query([]).map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+        out.push(PreviewTarget {
+            id: row.get(0).map_err(|e| e.to_string())?,
+            display_name: row.get(1).map_err(|e| e.to_string())?,
+            folder_path: row.get(2).map_err(|e| e.to_string())?,
+        });
+    }
+    Ok(out)
+}
+
+fn generate_previews(
+    window: &Window,
+    kind: PreviewKind,
+) -> Result<PreviewGenerationSummary, String> {
+    let jar = match locate_preview_tool() {
+        Ok(jar) => jar,
+        Err(err) => {
+            emit_preview_progress(
+                window,
+                kind,
+                "error",
+                0,
+                0,
+                0,
+                0,
+                0,
+                None,
+                Some(err.clone()),
+            );
+            return Err(err);
+        }
+    };
+
+    println!("[preview] using generator jar '{}'", jar.to_string_lossy());
+
+    let conn = con().map_err(|e| e.to_string())?;
+    let mods = collect_preview_targets(&conn)?;
+    let total = mods.len();
+
+    let mut summary = PreviewGenerationSummary {
+        generated: 0,
+        skipped: 0,
+        errors: 0,
+    };
+
+    emit_preview_progress(
+        window,
+        kind,
+        "running",
+        total,
+        0,
+        summary.generated,
+        summary.skipped,
+        summary.errors,
+        None,
+        None,
+    );
+
+    for (index, target_mod) in mods.iter().enumerate() {
+        let folder = Path::new(&target_mod.folder_path);
+        let path_display = target_mod.display_name.clone();
+        let target = folder.join(kind.target_name());
+        if !folder.exists() {
+            println!(
+                "[preview] skipping mod id={} display='{}' because folder is missing",
+                target_mod.id, target_mod.display_name
+            );
+            summary.errors += 1;
+            emit_preview_progress(
+                window,
+                kind,
+                "running",
+                total,
+                index + 1,
+                summary.generated,
+                summary.skipped,
+                summary.errors,
+                Some(path_display),
+                Some("Folder missing on disk".to_string()),
+            );
+            continue;
+        }
+
+        if target.exists() {
+            summary.skipped += 1;
+            emit_preview_progress(
+                window,
+                kind,
+                "running",
+                total,
+                index + 1,
+                summary.generated,
+                summary.skipped,
+                summary.errors,
+                Some(path_display),
+                Some("Preview already exists".to_string()),
+            );
+            continue;
+        }
+
+        println!(
+            "[preview] generating {:?} for mod id={} display='{}'",
+            kind, target_mod.id, target_mod.display_name
+        );
+
+        emit_preview_progress(
+            window,
+            kind,
+            "running",
+            total,
+            index,
+            summary.generated,
+            summary.skipped,
+            summary.errors,
+            Some(target_mod.display_name.clone()),
+            Some("Starting generator".to_string()),
+        );
+
+        let mut cmd = Command::new("java");
+        cmd.arg("--enable-native-access=ALL-UNNAMED")
+            .arg("-jar")
+            .arg(&jar)
+            .arg("--folder")
+            .arg(&target_mod.folder_path);
+
+        match kind {
+            PreviewKind::Image => {
+                cmd.arg("--output").arg(target.as_os_str());
+            }
+            PreviewKind::Video => {
+                cmd.arg("--video-seconds")
+                    .arg("5")
+                    .arg("--fps")
+                    .arg("30")
+                    .arg("--video-loop")
+                    .arg("auto")
+                    .arg("--video-output")
+                    .arg(target.as_os_str());
+            }
+        }
+
+        if let Some(parent) = jar.parent() {
+            cmd.current_dir(parent);
+        }
+
+        let output = match cmd.output() {
+            Ok(output) => output,
+            Err(err) => {
+                let msg = format!("Failed to run java command: {}", err);
+                emit_preview_progress(
+                    window,
+                    kind,
+                    "error",
+                    total,
+                    index,
+                    summary.generated,
+                    summary.skipped,
+                    summary.errors + 1,
+                    Some(path_display),
+                    Some(msg.clone()),
+                );
+                return Err(msg);
+            }
+        };
+
+        if !output.stdout.is_empty() {
+            println!(
+                "[preview] java stdout id={} display='{}':
+{}",
+                target_mod.id,
+                target_mod.display_name,
+                String::from_utf8_lossy(&output.stdout)
+            );
+        }
+        if !output.stderr.is_empty() {
+            println!(
+                "[preview] java stderr id={} display='{}':
+{}",
+                target_mod.id,
+                target_mod.display_name,
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+
+        let mut message = if output.status.success() {
+            summary.generated += 1;
+            "Preview generated".to_string()
+        } else {
+            summary.errors += 1;
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let short = stderr
+                .lines()
+                .rev()
+                .find(|line| !line.trim().is_empty())
+                .map(|line| line.trim().to_string())
+                .unwrap_or_else(|| "Preview generation failed".to_string());
+            println!(
+                "[preview] generator failed for id={} status={} stderr={}",
+                target_mod.id, output.status, stderr
+            );
+            short
+        };
+
+        if output.status.success() && !target.exists() {
+            summary.generated = summary.generated.saturating_sub(1);
+            summary.errors += 1;
+            message = "Generator reported success but preview is missing".to_string();
+        }
+
+        emit_preview_progress(
+            window,
+            kind,
+            "running",
+            total,
+            index + 1,
+            summary.generated,
+            summary.skipped,
+            summary.errors,
+            Some(target_mod.display_name.clone()),
+            Some(message),
+        );
+    }
+
+    let completion_msg = format!(
+        "Completed: generated {} / {} • skipped {} • errors {}",
+        summary.generated, total, summary.skipped, summary.errors
+    );
+    emit_preview_progress(
+        window,
+        kind,
+        "done",
+        total,
+        total,
+        summary.generated,
+        summary.skipped,
+        summary.errors,
+        None,
+        Some(completion_msg),
+    );
+
+    Ok(summary)
+}
+
+fn preview_info_for_path(folder_path: &str) -> PreviewInfo {
+    let folder = Path::new(folder_path);
+    let image_path = folder.join("preview.png");
+    let video_path = folder.join("preview.mp4");
+    let has_image = image_path.exists();
+    let has_video = video_path.exists();
+    let image_path_norm = normalize_path_string(&image_path.to_string_lossy());
+    let video_path_norm = normalize_path_string(&video_path.to_string_lossy());
+
+    println!(
+        "[preview_info] folder='{}' image='{}' (exists={}) video='{}' (exists={})",
+        folder_path, image_path_norm, has_image, video_path_norm, has_video
+    );
+
+    PreviewInfo {
+        has_image,
+        has_video,
+        image_path: if has_image {
+            Some(image_path_norm)
+        } else {
+            None
+        },
+        video_path: if has_video {
+            Some(video_path_norm)
+        } else {
+            None
+        },
+    }
+}
+
 fn mod_exists_by_path(conn: &rusqlite::Connection, fp_norm: &str) -> Result<bool, String> {
     let mut stmt = conn
         .prepare("SELECT 1 FROM mods WHERE folder_path = ?1 LIMIT 1")
@@ -294,6 +705,33 @@ pub fn mods_add(new_mod: NewMod) -> Result<i64, String> {
 }
 
 /* ===========Commands=========== */
+
+#[tauri::command]
+pub fn previews_generate_images(window: Window) -> Result<PreviewGenerationSummary, String> {
+    generate_previews(&window, PreviewKind::Image)
+}
+
+#[tauri::command]
+pub fn previews_generate_videos(window: Window) -> Result<PreviewGenerationSummary, String> {
+    generate_previews(&window, PreviewKind::Video)
+}
+
+#[tauri::command]
+pub fn mod_preview_info(id: i64) -> Result<PreviewInfo, String> {
+    let conn = con().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT folder_path FROM mods WHERE id = ?1")
+        .map_err(|e| e.to_string())?;
+    let folder_path = stmt
+        .query_row([id], |r| r.get::<_, String>(0))
+        .optional()
+        .map_err(|e| e.to_string())?;
+
+    match folder_path {
+        Some(path) => Ok(preview_info_for_path(&path)),
+        None => Err(format!("Mod with id={} not found", id)),
+    }
+}
 
 #[tauri::command]
 pub fn mods_list(filter: Option<ModFilter>) -> Result<Vec<ModRow>, String> {
@@ -773,7 +1211,6 @@ pub fn catalog_list() -> Result<CatalogListResponse, String> {
     })
 }
 
-
 #[tauri::command]
 pub fn mods_purge_all() -> Result<usize, String> {
     let conn = con().map_err(|e| e.to_string())?;
@@ -783,4 +1220,3 @@ pub fn mods_purge_all() -> Result<usize, String> {
     println!("[mods_purge_all] deleted {} mods", affected);
     Ok(affected as usize)
 }
-
