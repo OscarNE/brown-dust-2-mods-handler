@@ -621,19 +621,14 @@ export default function App() {
               )}
             </CardHeader>
             <Separator />
-            <CardContent className="flex-1 overflow-auto">
+            <CardContent className="flex-1 overflow-hidden">
               {!selectedMod && (
                 <div className="h-full grid place-items-center text-sm opacity-60">
                   Select a mod
                 </div>
               )}
               {selectedMod && (
-                <div className="flex h-full flex-col gap-4">
-                  <div>
-                    <div className="text-xs text-zinc-400 truncate">
-                      {selectedMod.folder_path}
-                    </div>
-                  </div>
+                <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
                   {previewBusy && (
                     <div className="text-sm opacity-60">Loading preview...</div>
                   )}
@@ -641,17 +636,14 @@ export default function App() {
                     <div className="text-sm text-red-400">{previewError}</div>
                   )}
                   {!previewBusy && !previewError && (
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-hidden">
                       {imageSrc ? (
-                        <div className="space-y-2">
-                          <div className="text-xs uppercase tracking-wide text-zinc-400">
-                            Image
-                          </div>
+                        <div className="flex-1 min-h-0 overflow-hidden rounded-md border border-zinc-800 bg-black/40">
                           <img
                             key={previewRevision}
                             src={imageSrc}
                             alt={`${selectedMod.display_name} preview`}
-                            className="max-h-[360px] w-full rounded-md border border-zinc-800 object-contain bg-black/40"
+                            className="h-full w-full object-contain"
                             onError={handleImageError}
                           />
                         </div>

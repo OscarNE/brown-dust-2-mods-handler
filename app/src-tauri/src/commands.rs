@@ -473,7 +473,7 @@ fn generate_previews(
             kind,
             "running",
             total,
-            index,
+            index + 1,
             summary.generated,
             summary.skipped,
             summary.errors,
