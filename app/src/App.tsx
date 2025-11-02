@@ -118,6 +118,7 @@ export default function App() {
   const [searchText, setSearchText] = useState("");
   const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
   const [previewCancelRequested, setPreviewCancelRequested] = useState(false);
+  const [videoFitMode, setVideoFitMode] = useState<"width" | "height">("width");
   const previewProgressPercent = useMemo(() => {
     if (!previewProgress) return 0;
     if (previewProgress.total > 0) {
@@ -250,7 +251,6 @@ export default function App() {
   useEffect(() => {
     console.log("[settings] state applied", settings);
   }, [settings]);
-
 
   useEffect(() => {
     if (previewData) {
@@ -615,6 +615,9 @@ export default function App() {
       }
     };
   }, [previewBusy, previewRevision, selectedVideoPath]);
+  useEffect(() => {
+    setVideoFitMode("width");
+  }, [selectedVideoPath, previewRevision]);
   const hasVideo = Boolean(videoBlobUrl);
 
   const handleImageError = useCallback(() => {
@@ -634,6 +637,17 @@ export default function App() {
     setVideoBlobUrl(null);
     setPreviewError(`Failed to load preview video at ${path}`);
   }, [previewBusy, selectedVideoPath, videoBlobUrl]);
+  const handleVideoMetadata = useCallback(
+    (event: React.SyntheticEvent<HTMLVideoElement>) => {
+      const el = event.currentTarget;
+      if (el.videoWidth > el.videoHeight) {
+        setVideoFitMode("width");
+      } else {
+        setVideoFitMode("height");
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (imageSrc) {
@@ -877,26 +891,33 @@ export default function App() {
                             <div className="text-xs uppercase tracking-wide text-zinc-400">
                               Video
                             </div>
-                            <video
-                              key={previewRevision}
-                              controls
-                              preload="metadata"
-                              className="w-full rounded-md border border-zinc-800 bg-black/40"
-                              onError={handleVideoError}
-                            >
-                              {videoBlobUrl ? (
-                                <source
-                                  src={videoBlobUrl}
-                                  type={selectedVideoMime}
-                                />
-                              ) : selectedVideoPath ? (
-                                <source
-                                  src={convertFileSrc(selectedVideoPath)}
-                                  type={selectedVideoMime}
-                                />
-                              ) : null}
-                              Your system can’t play this video.
-                            </video>
+                            <div className="flex h-full min-h-0 flex-1 items-center justify-center overflow-hidden rounded-md border border-zinc-800 bg-black/40">
+                              <video
+                                key={previewRevision}
+                                controls
+                                preload="metadata"
+                                autoPlay
+                                muted
+                                playsInline
+                                className={`max-h-full max-w-full ${videoFitMode === "height" ? "h-full w-auto" : "w-full h-auto"}`}
+                                onError={handleVideoError}
+                                onLoadedMetadata={handleVideoMetadata}
+                                loop
+                              >
+                                {videoBlobUrl ? (
+                                  <source
+                                    src={videoBlobUrl}
+                                    type={selectedVideoMime}
+                                  />
+                                ) : selectedVideoPath ? (
+                                  <source
+                                    src={convertFileSrc(selectedVideoPath)}
+                                    type={selectedVideoMime}
+                                  />
+                                ) : null}
+                                Your system can’t play this video.
+                              </video>
+                            </div>
                           </div>
                         ) : imageSrc ? (
                           <div className="flex-1 min-h-0 overflow-hidden rounded-md border border-zinc-800 bg-black/40">
