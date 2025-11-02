@@ -72,37 +72,10 @@ export default function SettingsDialog({
   cancelPreviewDisabled = false,
 }: Props) {
   const libraries = settings.library_dirs || [];
-  const progressPercent = previewProgress
-    ? previewProgress.total > 0
-      ? Math.min(
-          100,
-          Math.round((previewProgress.processed / previewProgress.total) * 100),
-        )
-      : previewProgress.status === "done" ||
-          previewProgress.status === "cancelled"
-        ? 100
-        : 0
-    : 0;
-  const progressLabel =
-    previewProgress?.kind === "video" ? "Video previews" : "Image previews";
-  const statusLabel =
-    previewProgress?.status === "done"
-      ? "Completed"
-      : previewProgress?.status === "error"
-        ? "Error"
-        : previewProgress?.status === "cancelled"
-          ? "Cancelled"
-          : "In progress";
   const isRunning = previewProgress?.status === "running";
   const disableImageButton = createPreviewImagesDisabled || isRunning;
   const disableVideoButton = createPreviewVideosDisabled || isRunning;
   const cancelDisabled = cancelPreviewDisabled || !isRunning;
-  const shouldShowPercent =
-    !!previewProgress &&
-    previewProgress.total > 0 &&
-    (isRunning ||
-      previewProgress.status === "done" ||
-      previewProgress.status === "cancelled");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl text-zinc-100">
@@ -221,50 +194,6 @@ export default function SettingsDialog({
                 )
               ) : null}
             </div>
-            {previewProgress && (
-              <div className="space-y-2 rounded-md border border-zinc-800/60 bg-zinc-900/40 p-3">
-                <div className="flex items-center justify-between text-xs text-zinc-400">
-                  <span>{progressLabel}</span>
-                  <span>
-                    {statusLabel}
-                    {shouldShowPercent ? ` ${progressPercent}%` : ""}
-                  </span>
-                </div>
-                <div className="h-2 w-full rounded bg-zinc-800">
-                  <div
-                    className={`h-2 rounded transition-all ${
-                      previewProgress.status === "error"
-                        ? "bg-red-500"
-                        : "bg-emerald-500"
-                    }`}
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-                <div className="text-xs text-zinc-500">
-                  {previewProgress.processed}/{previewProgress.total} •
-                  generated {previewProgress.generated} • skipped{" "}
-                  {previewProgress.skipped} • errors {previewProgress.errors}
-                </div>
-                {previewProgress.current_mod ? (
-                  <div className="text-xs text-zinc-400 truncate">
-                    Current: {previewProgress.current_mod}
-                  </div>
-                ) : null}
-                {previewProgress.message ? (
-                  <div
-                    className={`text-xs ${
-                      previewProgress.status === "error"
-                        ? "text-red-400"
-                        : previewProgress.status === "cancelled"
-                          ? "text-zinc-400"
-                          : "text-amber-300"
-                    }`}
-                  >
-                    {previewProgress.message}
-                  </div>
-                ) : null}
-              </div>
-            )}
           </section>
 
           <Separator />
