@@ -667,7 +667,7 @@ export default function App() {
     : "single-import";
 
   return (
-    <div className="flex h-screen w-screen flex-col text-zinc-100">
+    <div className="flex h-screen w-screen flex-col overflow-hidden text-zinc-100">
       {/* Top bar */}
       <div className="h-12 border-b border-zinc-800 px-4 flex items-center justify-between bg-zinc-950/60 backdrop-blur">
         <div className="font-medium">Mod Manager (Tauri)</div>
@@ -765,7 +765,7 @@ export default function App() {
       )}
 
       {/* Body grid */}
-      <div className="flex-1 grid grid-cols-[35%_65%]">
+      <div className="flex-1 grid grid-cols-[35%_65%] overflow-hidden">
         {/* Left: List */}
         <div className="h-full p-3 overflow-hidden">
           <Card className="h-full overflow-hidden flex flex-col">
