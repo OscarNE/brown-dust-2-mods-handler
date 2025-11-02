@@ -87,6 +87,8 @@ pub struct PreviewInfo {
     pub has_video: bool,
     pub image_path: Option<String>,
     pub video_path: Option<String>,
+    pub video_mp4_path: Option<String>,
+    pub video_webm_path: Option<String>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -609,15 +611,20 @@ fn generate_previews(
 fn preview_info_for_path(folder_path: &str) -> PreviewInfo {
     let folder = Path::new(folder_path);
     let image_path = folder.join("preview.png");
-    let video_path = folder.join("preview.mp4");
+    let video_mp4 = folder.join("preview.mp4");
+    let video_webm = folder.join("preview.webm");
     let has_image = image_path.exists();
-    let has_video = video_path.exists();
+    let has_mp4 = video_mp4.exists();
+    let has_webm = video_webm.exists();
+    let has_video = has_mp4 || has_webm;
+
     let image_path_norm = normalize_path_string(&image_path.to_string_lossy());
-    let video_path_norm = normalize_path_string(&video_path.to_string_lossy());
+    let video_mp4_norm = normalize_path_string(&video_mp4.to_string_lossy());
+    let video_webm_norm = normalize_path_string(&video_webm.to_string_lossy());
 
     println!(
-        "[preview_info] folder='{}' image='{}' (exists={}) video='{}' (exists={})",
-        folder_path, image_path_norm, has_image, video_path_norm, has_video
+        "[preview_info] folder='{}' image='{}' (exists={}) video_mp4='{}' (exists={}) video_webm='{}' (exists={})",
+        folder_path, image_path_norm, has_image, video_mp4_norm, has_mp4, video_webm_norm, has_webm
     );
 
     PreviewInfo {
@@ -628,8 +635,16 @@ fn preview_info_for_path(folder_path: &str) -> PreviewInfo {
         } else {
             None
         },
-        video_path: if has_video {
-            Some(video_path_norm)
+        video_path: if has_mp4 {
+            Some(video_mp4_norm.clone())
+        } else if has_webm {
+            Some(video_webm_norm.clone())
+        } else {
+            None
+        },
+        video_mp4_path: if has_mp4 { Some(video_mp4_norm) } else { None },
+        video_webm_path: if has_webm {
+            Some(video_webm_norm)
         } else {
             None
         },
@@ -762,7 +777,7 @@ pub fn mods_list(filter: Option<ModFilter>) -> Result<Vec<ModRow>, String> {
           AND (?2 IS NULL OR costume_id  = ?2)
           AND (?3 IS NULL OR author LIKE ?3)
           AND (?4 IS NULL OR display_name LIKE ?4 OR folder_path LIKE ?4)
-        ORDER BY updated_at DESC
+        ORDER BY LOWER(display_name) ASC, id ASC
     "#;
 
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;

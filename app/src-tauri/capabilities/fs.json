@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/plugin-fs.json",
+  "identifier": "fs",
+  "description": "Allow the UI to read preview assets from disk",
+  "windows": ["main"],
+  "permissions": [
+    "fs:read-all",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "**" }
+      ]
+    }
+  ]
+}

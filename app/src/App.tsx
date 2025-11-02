@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
@@ -13,6 +14,7 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
+import { readFile } from "@tauri-apps/plugin-fs";
 import ImportWizard from "@/components/ImportWizard";
 import SettingsDialog from "@/components/SettingsDialog";
 
@@ -62,6 +64,8 @@ type PreviewInfo = {
   has_video: boolean;
   image_path?: string | null;
   video_path?: string | null;
+  video_mp4_path?: string | null;
+  video_webm_path?: string | null;
 };
 type PreviewGenerationSummary = {
   generated: number;
@@ -79,6 +83,15 @@ type PreviewProgressPayload = {
   current_mod?: string | null;
   message?: string | null;
 };
+
+function guessVideoMime(path?: string | null) {
+  if (!path) return "application/octet-stream";
+  const lower = path.toLowerCase();
+  if (lower.endsWith(".webm")) return "video/webm";
+  if (lower.endsWith(".mp4") || lower.endsWith(".m4v")) return "video/mp4";
+  if (lower.endsWith(".ogg") || lower.endsWith(".ogv")) return "video/ogg";
+  return "application/octet-stream";
+}
 export default function App() {
   const [version, setVersion] = useState<string>("");
   const [mods, setMods] = useState<ModRow[]>([]);
@@ -106,6 +119,23 @@ export default function App() {
   const [previewProgress, setPreviewProgress] =
     useState<PreviewProgressPayload | null>(null);
   const [previewRevision, setPreviewRevision] = useState(0);
+  const [searchText, setSearchText] = useState("");
+  const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
+
+  const refresh = useCallback(() => {
+    const trimmed = searchText.trim();
+    const filter = trimmed.length > 0 ? { q: trimmed } : null;
+    invoke<ModRow[]>("mods_list", { filter })
+      .then((rows) => {
+        const sorted = [...rows].sort((a, b) =>
+          a.display_name.localeCompare(b.display_name, undefined, {
+            sensitivity: "base",
+          }),
+        );
+        setMods(sorted);
+      })
+      .catch(console.error);
+  }, [searchText]);
 
   useEffect(() => {
     invoke<string>("app_version")
@@ -113,14 +143,11 @@ export default function App() {
       .catch(() => setVersion("dev"));
     invoke<string>("db_init").catch(console.error);
     loadSettings();
-    refresh();
   }, []);
 
-  function refresh() {
-    invoke<ModRow[]>("mods_list", { filter: null })
-      .then(setMods)
-      .catch(console.error);
-  }
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   async function loadSettings() {
     const s = await invoke<AppSettings>("settings_get");
@@ -458,14 +485,76 @@ export default function App() {
     if (!previewData?.image_path || previewBusy) return null;
     const fileUrl = convertFileSrc(previewData.image_path);
     console.log("[preview] image fileUrl", fileUrl);
-    return fileUrl;
+    try {
+      const safeUrl = new URL(fileUrl).toString();
+      if (safeUrl !== fileUrl) {
+        console.log("[preview] sanitized image URL", safeUrl);
+      }
+      return safeUrl;
+    } catch {
+      return fileUrl;
+    }
   }, [previewData?.image_path, previewBusy]);
-  const videoSrc = useMemo(() => {
-    if (!previewData?.video_path || previewBusy) return null;
-    const fileUrl = convertFileSrc(previewData.video_path);
-    console.log("[preview] video fileUrl", fileUrl);
-    return fileUrl;
-  }, [previewData?.video_path, previewBusy]);
+  const selectedVideoPath = useMemo(() => {
+    if (previewBusy) return null;
+    if (previewData?.video_webm_path) return previewData.video_webm_path;
+    if (previewData?.video_mp4_path) return previewData.video_mp4_path;
+    if (previewData?.video_path) return previewData.video_path;
+    return null;
+  }, [
+    previewBusy,
+    previewData?.video_mp4_path,
+    previewData?.video_path,
+    previewData?.video_webm_path,
+  ]);
+  const selectedVideoMime = useMemo(
+    () => guessVideoMime(selectedVideoPath),
+    [selectedVideoPath],
+  );
+  useEffect(() => {
+    let revoked: string | null = null;
+    let cancelled = false;
+
+    async function loadBlob(path: string) {
+      try {
+        const bytes = await readFile(path);
+        if (cancelled) {
+          return;
+        }
+        const blob = new Blob([bytes], { type: guessVideoMime(path) });
+        const url = URL.createObjectURL(blob);
+        revoked = url;
+        setVideoBlobUrl(url);
+      } catch (error) {
+        if (cancelled) return;
+        console.error("[preview] blob load failed", error);
+        setVideoBlobUrl(null);
+        setPreviewError(`Failed to load preview video at ${path}`);
+      }
+    }
+
+    setVideoBlobUrl(null);
+    if (previewBusy) {
+      return () => {
+        cancelled = true;
+        if (revoked) {
+          URL.revokeObjectURL(revoked);
+        }
+      };
+    }
+
+    if (selectedVideoPath) {
+      void loadBlob(selectedVideoPath);
+    }
+
+    return () => {
+      cancelled = true;
+      if (revoked) {
+        URL.revokeObjectURL(revoked);
+      }
+    };
+  }, [previewBusy, previewRevision, selectedVideoPath]);
+  const hasVideo = Boolean(videoBlobUrl);
 
   const handleImageError = useCallback(() => {
     const path = previewData?.image_path ?? "unknown";
@@ -478,14 +567,12 @@ export default function App() {
   }, [previewData, previewBusy]);
 
   const handleVideoError = useCallback(() => {
-    const path = previewData?.video_path ?? "unknown";
-    const computedSrc =
-      previewData?.video_path && !previewBusy
-        ? convertFileSrc(previewData.video_path)
-        : null;
+    const path = selectedVideoPath ?? "unknown";
+    const computedSrc = !previewBusy ? videoBlobUrl : null;
     console.error("[preview] video load failed", { path, computedSrc });
+    setVideoBlobUrl(null);
     setPreviewError(`Failed to load preview video at ${path}`);
-  }, [previewData, previewBusy]);
+  }, [previewBusy, selectedVideoPath, videoBlobUrl]);
 
   useEffect(() => {
     if (imageSrc) {
@@ -496,15 +583,15 @@ export default function App() {
         previewData?.image_path,
       );
     }
-    if (videoSrc) {
+    if (videoBlobUrl && selectedVideoPath) {
       console.log(
-        "[preview] attempting to render video",
-        videoSrc,
+        "[preview] attempting to render video blob",
+        videoBlobUrl,
         "from",
-        previewData?.video_path,
+        selectedVideoPath,
       );
     }
-  }, [imageSrc, videoSrc, previewData]);
+  }, [imageSrc, previewData, selectedVideoPath, videoBlobUrl]);
 
   const isBulkMode = importMode === "bulk" && bulkQueue.length > 0;
   const currentBulk =
@@ -552,8 +639,15 @@ export default function App() {
         {/* Left: List */}
         <div className="h-full p-3 overflow-hidden">
           <Card className="h-full overflow-hidden flex flex-col">
-            <CardHeader>
+            <CardHeader className="space-y-3">
               <CardTitle>All Mods</CardTitle>
+              <Input
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+                placeholder="Search mods..."
+                className="h-9 text-sm"
+                aria-label="Search mods"
+              />
             </CardHeader>
             <Separator />
             <CardContent className="flex-1 overflow-auto pr-1">
@@ -601,7 +695,9 @@ export default function App() {
                 })}
                 {mods.length === 0 && (
                   <li className="opacity-60">
-                    No mods yet — add a library folder and hit Rescan.
+                    {searchText.trim().length > 0
+                      ? "No mods match your search."
+                      : "No mods yet — add a library folder and hit Rescan."}
                   </li>
                 )}
               </ul>
@@ -637,7 +733,28 @@ export default function App() {
                   )}
                   {!previewBusy && !previewError && (
                     <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-hidden">
-                      {imageSrc ? (
+                      {hasVideo ? (
+                        <div className="flex-1 min-h-0 space-y-2">
+                          <div className="text-xs uppercase tracking-wide text-zinc-400">
+                            Video
+                          </div>
+                          <video
+                            key={previewRevision}
+                            controls
+                            preload="metadata"
+                            className="h-full w-full rounded-md border border-zinc-800 bg-black/40"
+                            onError={handleVideoError}
+                          >
+                            {videoBlobUrl ? (
+                              <source
+                                src={videoBlobUrl}
+                                type={selectedVideoMime}
+                              />
+                            ) : null}
+                            Your system can’t play this video.
+                          </video>
+                        </div>
+                      ) : imageSrc ? (
                         <div className="flex-1 min-h-0 overflow-hidden rounded-md border border-zinc-800 bg-black/40">
                           <img
                             key={previewRevision}
@@ -647,24 +764,9 @@ export default function App() {
                             onError={handleImageError}
                           />
                         </div>
-                      ) : null}
-                      {videoSrc ? (
-                        <div className="space-y-2">
-                          <div className="text-xs uppercase tracking-wide text-zinc-400">
-                            Video
-                          </div>
-                          <video
-                            key={previewRevision}
-                            controls
-                            src={videoSrc}
-                            className="w-full rounded-md border border-zinc-800 bg-black/40"
-                            onError={handleVideoError}
-                          />
-                        </div>
-                      ) : null}
-                      {!imageSrc && !videoSrc && (
+                      ) : (
                         <div className="text-sm opacity-60">
-                          No previews found. Generate them from the settings.
+                          No preview media available.
                         </div>
                       )}
                     </div>

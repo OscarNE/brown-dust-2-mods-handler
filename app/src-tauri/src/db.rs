@@ -67,7 +67,12 @@ pub fn migrate(conn: &Connection) -> Result<()> {
               installed_at TEXT,                              -- ISO8601
               target_path TEXT,                               -- where in the game dir (optional for now)
               mod_type TEXT NOT NULL DEFAULT 'idle'
-                CHECK (mod_type IN ('idle','cutscene','date','battle','ui','other')),
+                CHECK (
+                  mod_type IN (
+                    'idle','cutscene','date','battle','ui','other',
+                    'history','minigame','swap'
+                  )
+                ),
               folder_path TEXT NOT NULL,                      -- absolute or chosen base + relative
               display_name TEXT NOT NULL,                     -- friendly name (usually folder name)
               created_at TEXT NOT NULL,                       -- ISO8601
@@ -147,6 +152,57 @@ pub fn migrate(conn: &Connection) -> Result<()> {
             "#,
         )?;
         conn.execute("UPDATE _schema_version SET version=4 WHERE id=1;", [])?;
+    }
+
+    if current < 5 {
+        println!("[db::migrate] upgrading schema to v5 (expanded mod types)");
+        conn.execute_batch(
+            r#"
+            DROP INDEX IF EXISTS mods_character_costume_idx;
+            DROP INDEX IF EXISTS mods_author_idx;
+            DROP INDEX IF EXISTS mods_folder_path_unique;
+
+            ALTER TABLE mods RENAME TO mods_old;
+
+            CREATE TABLE mods (
+              id INTEGER PRIMARY KEY,
+              character_id INTEGER REFERENCES characters(id) ON DELETE SET NULL,
+              costume_id INTEGER REFERENCES costumes(id) ON DELETE SET NULL,
+              author TEXT,
+              download_url TEXT,
+              installed INTEGER NOT NULL DEFAULT 0,
+              installed_at TEXT,
+              target_path TEXT,
+              mod_type TEXT NOT NULL DEFAULT 'idle'
+                CHECK (
+                  mod_type IN (
+                    'idle','cutscene','date','battle','ui','other',
+                    'history','minigame','swap'
+                  )
+                ),
+              folder_path TEXT NOT NULL,
+              display_name TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            );
+
+            INSERT INTO mods (
+              id, character_id, costume_id, author, download_url, installed, installed_at,
+              target_path, mod_type, folder_path, display_name, created_at, updated_at
+            )
+            SELECT
+              id, character_id, costume_id, author, download_url, installed, installed_at,
+              target_path, mod_type, folder_path, display_name, created_at, updated_at
+            FROM mods_old;
+
+            CREATE INDEX mods_character_costume_idx ON mods(character_id, costume_id);
+            CREATE INDEX mods_author_idx ON mods(author);
+            CREATE UNIQUE INDEX mods_folder_path_unique ON mods(folder_path);
+
+            DROP TABLE mods_old;
+            "#,
+        )?;
+        conn.execute("UPDATE _schema_version SET version=5 WHERE id=1;", [])?;
     }
 
     Ok(())

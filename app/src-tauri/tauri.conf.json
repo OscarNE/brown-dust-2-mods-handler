@@ -18,12 +18,12 @@
       }
     ],
     "security": {
-      "csp": null,
+      "csp": "default-src 'self'; img-src 'self' asset: data:; media-src 'self' asset: blob:; connect-src 'self' tauri:;",
       "assetProtocol": {
         "enable": true,
         "scope": ["**"]
       },
-      "capabilities": ["core", "dialog"]
+      "capabilities": ["core", "dialog", "fs"]
     }
   },
   "bundle": {
