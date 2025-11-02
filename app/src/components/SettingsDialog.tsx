@@ -18,7 +18,7 @@ type SettingsData = {
 
 type PreviewProgressData = {
   kind: "image" | "video";
-  status: "running" | "done" | "error";
+  status: "running" | "done" | "error" | "cancelled";
   total: number;
   processed: number;
   generated: number;
@@ -45,6 +45,9 @@ type Props = {
   createPreviewImagesDisabled?: boolean;
   createPreviewVideosDisabled?: boolean;
   previewProgress?: PreviewProgressData | null;
+  onCancelPreview: () => void;
+  onClearPreviewProgress: () => void;
+  cancelPreviewDisabled?: boolean;
 };
 
 export default function SettingsDialog({
@@ -64,6 +67,9 @@ export default function SettingsDialog({
   createPreviewImagesDisabled = false,
   createPreviewVideosDisabled = false,
   previewProgress = null,
+  onCancelPreview,
+  onClearPreviewProgress,
+  cancelPreviewDisabled = false,
 }: Props) {
   const libraries = settings.library_dirs || [];
   const progressPercent = previewProgress
@@ -72,7 +78,8 @@ export default function SettingsDialog({
           100,
           Math.round((previewProgress.processed / previewProgress.total) * 100),
         )
-      : previewProgress.status === "done"
+      : previewProgress.status === "done" ||
+          previewProgress.status === "cancelled"
         ? 100
         : 0
     : 0;
@@ -83,7 +90,19 @@ export default function SettingsDialog({
       ? "Completed"
       : previewProgress?.status === "error"
         ? "Error"
-        : "In progress";
+        : previewProgress?.status === "cancelled"
+          ? "Cancelled"
+          : "In progress";
+  const isRunning = previewProgress?.status === "running";
+  const disableImageButton = createPreviewImagesDisabled || isRunning;
+  const disableVideoButton = createPreviewVideosDisabled || isRunning;
+  const cancelDisabled = cancelPreviewDisabled || !isRunning;
+  const shouldShowPercent =
+    !!previewProgress &&
+    previewProgress.total > 0 &&
+    (isRunning ||
+      previewProgress.status === "done" ||
+      previewProgress.status === "cancelled");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl text-zinc-100">
@@ -161,13 +180,13 @@ export default function SettingsDialog({
                 Generate missing previews for each registered mod folder.
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
                 onClick={onCreatePreviewImages}
-                disabled={createPreviewImagesDisabled}
+                disabled={disableImageButton}
               >
-                {createPreviewImagesDisabled
+                {isRunning && previewProgress?.kind === "image"
                   ? "Generating..."
                   : "Create preview images"}
               </Button>
@@ -175,12 +194,32 @@ export default function SettingsDialog({
                 size="sm"
                 variant="outline"
                 onClick={onCreatePreviewVideos}
-                disabled={createPreviewVideosDisabled}
+                disabled={disableVideoButton}
               >
-                {createPreviewVideosDisabled
+                {isRunning && previewProgress?.kind === "video"
                   ? "Generating..."
                   : "Create preview videos"}
               </Button>
+              {previewProgress ? (
+                isRunning ? (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={onCancelPreview}
+                    disabled={cancelDisabled}
+                  >
+                    {cancelDisabled ? "Cancelling..." : "Cancel"}
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={onClearPreviewProgress}
+                  >
+                    Close
+                  </Button>
+                )
+              ) : null}
             </div>
             {previewProgress && (
               <div className="space-y-2 rounded-md border border-zinc-800/60 bg-zinc-900/40 p-3">
@@ -188,20 +227,23 @@ export default function SettingsDialog({
                   <span>{progressLabel}</span>
                   <span>
                     {statusLabel}
-                    {previewProgress.status === "running" &&
-                    previewProgress.total > 0
-                      ? ` ${progressPercent}%`
-                      : ""}
+                    {shouldShowPercent ? ` ${progressPercent}%` : ""}
                   </span>
                 </div>
                 <div className="h-2 w-full rounded bg-zinc-800">
                   <div
-                    className={`h-2 rounded transition-all ${previewProgress.status === "error" ? "bg-red-500" : "bg-emerald-500"}`}
+                    className={`h-2 rounded transition-all ${
+                      previewProgress.status === "error"
+                        ? "bg-red-500"
+                        : "bg-emerald-500"
+                    }`}
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
                 <div className="text-xs text-zinc-500">
-                  {previewProgress.processed}/{previewProgress.total} • generated {previewProgress.generated} • skipped {previewProgress.skipped} • errors {previewProgress.errors}
+                  {previewProgress.processed}/{previewProgress.total} •
+                  generated {previewProgress.generated} • skipped{" "}
+                  {previewProgress.skipped} • errors {previewProgress.errors}
                 </div>
                 {previewProgress.current_mod ? (
                   <div className="text-xs text-zinc-400 truncate">
@@ -209,7 +251,15 @@ export default function SettingsDialog({
                   </div>
                 ) : null}
                 {previewProgress.message ? (
-                  <div className="text-xs text-amber-300">
+                  <div
+                    className={`text-xs ${
+                      previewProgress.status === "error"
+                        ? "text-red-400"
+                        : previewProgress.status === "cancelled"
+                          ? "text-zinc-400"
+                          : "text-amber-300"
+                    }`}
+                  >
                     {previewProgress.message}
                   </div>
                 ) : null}

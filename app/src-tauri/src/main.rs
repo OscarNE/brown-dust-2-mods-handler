@@ -22,6 +22,7 @@ fn main() {
             commands::mod_preview_info,
             commands::previews_generate_images,
             commands::previews_generate_videos,
+            commands::previews_cancel,
             commands::mods_set_installed,
             commands::mods_purge_all,
             commands::settings_get,

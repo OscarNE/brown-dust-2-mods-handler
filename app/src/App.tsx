@@ -16,6 +16,7 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import ImportWizard from "@/components/ImportWizard";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import SettingsDialog from "@/components/SettingsDialog";
 
 type ModType =
@@ -67,14 +68,9 @@ type PreviewInfo = {
   video_mp4_path?: string | null;
   video_webm_path?: string | null;
 };
-type PreviewGenerationSummary = {
-  generated: number;
-  skipped: number;
-  errors: number;
-};
 type PreviewProgressPayload = {
   kind: "image" | "video";
-  status: "running" | "done" | "error";
+  status: "running" | "done" | "error" | "cancelled";
   total: number;
   processed: number;
   generated: number;
@@ -121,6 +117,60 @@ export default function App() {
   const [previewRevision, setPreviewRevision] = useState(0);
   const [searchText, setSearchText] = useState("");
   const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
+  const [previewCancelRequested, setPreviewCancelRequested] = useState(false);
+  const previewProgressPercent = useMemo(() => {
+    if (!previewProgress) return 0;
+    if (previewProgress.total > 0) {
+      return Math.min(
+        100,
+        Math.round((previewProgress.processed / previewProgress.total) * 100),
+      );
+    }
+    return previewProgress.status === "done" ||
+      previewProgress.status === "cancelled"
+      ? 100
+      : 0;
+  }, [previewProgress]);
+  const previewProgressLabel =
+    previewProgress?.kind === "video" ? "Video previews" : "Image previews";
+  const previewProgressStatus =
+    previewProgress?.status === "done"
+      ? "Completed"
+      : previewProgress?.status === "error"
+        ? "Error"
+        : previewProgress?.status === "cancelled"
+          ? "Cancelled"
+          : "In progress";
+  const isPreviewRunning = previewProgress?.status === "running";
+  const previewProgressMessageClass =
+    previewProgress?.status === "error"
+      ? "text-red-400"
+      : previewProgress?.status === "cancelled"
+        ? "text-zinc-400"
+        : "text-amber-300";
+  const shouldShowProgressPercent =
+    !!previewProgress &&
+    previewProgress.total > 0 &&
+    (isPreviewRunning ||
+      previewProgress.status === "done" ||
+      previewProgress.status === "cancelled");
+  const clearPreviewProgress = useCallback(() => {
+    setPreviewProgress(null);
+    setPreviewCancelRequested(false);
+  }, []);
+  const cancelPreviewGeneration = useCallback(() => {
+    if (!previewProgress || previewProgress.status !== "running") return;
+    const kind = previewProgress.kind;
+    setPreviewCancelRequested(true);
+    setPreviewProgress((prev) =>
+      prev && prev.status === "running"
+        ? { ...prev, message: "Cancelling..." }
+        : prev,
+    );
+    void invoke("previews_cancel", { kind }).catch((err) => {
+      console.error("[preview] failed to cancel generation", err);
+    });
+  }, [previewProgress]);
 
   const refresh = useCallback(() => {
     const trimmed = searchText.trim();
@@ -201,28 +251,6 @@ export default function App() {
     console.log("[settings] state applied", settings);
   }, [settings]);
 
-  useEffect(() => {
-    let unlisten: UnlistenFn | null = null;
-    listen<PreviewProgressPayload>("preview-progress", (event) => {
-      setPreviewProgress((prev) => ({
-        ...event.payload,
-        message: event.payload.message ?? prev?.message ?? null,
-        current_mod: event.payload.current_mod ?? prev?.current_mod ?? null,
-      }));
-    })
-      .then((fn) => {
-        unlisten = fn;
-      })
-      .catch((err) => {
-        console.error("[preview] failed to register progress listener", err);
-      });
-
-    return () => {
-      if (unlisten) {
-        unlisten();
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (previewData) {
@@ -273,6 +301,45 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    let unlisten: UnlistenFn | null = null;
+    listen<PreviewProgressPayload>("preview-progress", (event) => {
+      console.log("[UI] EVENT RECEIVED", event.payload);
+      setPreviewProgress((prev) => {
+        console.log("[UI] STATE MERGE", prev, event.payload);
+        const next = event.payload;
+        return {
+          ...next,
+          message: next.message ?? prev?.message ?? null,
+          current_mod: next.current_mod ?? prev?.current_mod ?? null,
+        };
+      });
+      if (event.payload.status !== "running") {
+        if (event.payload.kind === "image") {
+          setPreviewImagesBusy(false);
+        }
+        if (event.payload.kind === "video") {
+          setPreviewVideosBusy(false);
+        }
+        if (selectedModId !== null) {
+          void loadPreview(selectedModId);
+        }
+      }
+    })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch((err) => {
+        console.error("[preview] failed to register progress listener", err);
+      });
+
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, [loadPreview, selectedModId]);
+
   const handleSelectMod = useCallback(
     (mod: ModRow) => {
       setSelectedModId(mod.id);
@@ -291,9 +358,11 @@ export default function App() {
     }
   }, [mods, selectedModId]);
 
-  async function generatePreviewImages() {
+  const generatePreviewImages = useCallback(() => {
     if (previewImagesBusy || previewVideosBusy) return;
+    console.log("[UI] START: setting running state (images)");
     setPreviewImagesBusy(true);
+    setPreviewCancelRequested(false);
     setPreviewProgress({
       kind: "image",
       status: "running",
@@ -304,15 +373,11 @@ export default function App() {
       errors: 0,
       message: "Preparing preview images...",
     });
-    try {
-      await invoke<PreviewGenerationSummary>("previews_generate_images");
-      if (selectedModId !== null) {
-        await loadPreview(selectedModId);
-      }
-    } catch (err) {
-      console.error("[preview] failed to generate images", err);
+    console.log("[UI] STATE SET: running (images)");
+    invoke("previews_generate_images").catch((err) => {
+      console.error("[preview] failed to start image generation", err);
       const message = err instanceof Error ? err.message : String(err);
-      alert(`Failed to generate preview images: ${message}`);
+      alert(`Failed to start preview images: ${message}`);
       setPreviewProgress({
         kind: "image",
         status: "error",
@@ -323,14 +388,15 @@ export default function App() {
         errors: 1,
         message,
       });
-    } finally {
       setPreviewImagesBusy(false);
-    }
-  }
+    });
+  }, [previewImagesBusy, previewVideosBusy]);
 
-  async function generatePreviewVideos() {
+  const generatePreviewVideos = useCallback(() => {
     if (previewImagesBusy || previewVideosBusy) return;
+    console.log("[UI] START: setting running state (videos)");
     setPreviewVideosBusy(true);
+    setPreviewCancelRequested(false);
     setPreviewProgress({
       kind: "video",
       status: "running",
@@ -341,15 +407,11 @@ export default function App() {
       errors: 0,
       message: "Preparing preview videos...",
     });
-    try {
-      await invoke<PreviewGenerationSummary>("previews_generate_videos");
-      if (selectedModId !== null) {
-        await loadPreview(selectedModId);
-      }
-    } catch (err) {
-      console.error("[preview] failed to generate videos", err);
+    console.log("[UI] STATE SET: running (videos)");
+    invoke("previews_generate_videos").catch((err) => {
+      console.error("[preview] failed to start video generation", err);
       const message = err instanceof Error ? err.message : String(err);
-      alert(`Failed to generate preview videos: ${message}`);
+      alert(`Failed to start preview videos: ${message}`);
       setPreviewProgress({
         kind: "video",
         status: "error",
@@ -360,10 +422,9 @@ export default function App() {
         errors: 1,
         message,
       });
-    } finally {
       setPreviewVideosBusy(false);
-    }
-  }
+    });
+  }, [previewImagesBusy, previewVideosBusy]);
 
   const rememberAuthorDir = useCallback(
     (dir: string, _author?: string) => {
@@ -592,6 +653,11 @@ export default function App() {
       );
     }
   }, [imageSrc, previewData, selectedVideoPath, videoBlobUrl]);
+  useEffect(() => {
+    if (!previewProgress || previewProgress.status !== "running") {
+      setPreviewCancelRequested(false);
+    }
+  }, [previewProgress]);
 
   const isBulkMode = importMode === "bulk" && bulkQueue.length > 0;
   const currentBulk =
@@ -601,7 +667,7 @@ export default function App() {
     : "single-import";
 
   return (
-    <div className="h-screen w-screen text-zinc-100">
+    <div className="flex h-screen w-screen flex-col text-zinc-100">
       {/* Top bar */}
       <div className="h-12 border-b border-zinc-800 px-4 flex items-center justify-between bg-zinc-950/60 backdrop-blur">
         <div className="font-medium">Mod Manager (Tauri)</div>
@@ -634,8 +700,72 @@ export default function App() {
         </div>
       </div>
 
+      {previewProgress && (
+        <div className="border-b border-zinc-800/80 bg-zinc-950/50 px-4 py-3 text-xs sm:text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="font-medium uppercase tracking-wide text-zinc-300">
+              {previewProgressLabel}
+            </div>
+            <div className="flex items-center gap-3 text-zinc-400">
+              <span>
+                {previewProgressStatus}
+                {shouldShowProgressPercent
+                  ? ` • ${previewProgressPercent}%`
+                  : ""}
+              </span>
+              {isPreviewRunning ? (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={cancelPreviewGeneration}
+                  disabled={previewCancelRequested}
+                >
+                  {previewCancelRequested ? "Cancelling..." : "Cancel"}
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={clearPreviewProgress}
+                >
+                  Close
+                </Button>
+              )}
+            </div>
+          </div>
+          <div className="mt-2 h-2 w-full rounded bg-zinc-800">
+            <div
+              className={`h-2 rounded transition-all ${
+                previewProgress.status === "error"
+                  ? "bg-red-500"
+                  : "bg-emerald-500"
+              }`}
+              style={{ width: `${previewProgressPercent}%` }}
+            />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+            <span>
+              {previewProgress.processed}/{previewProgress.total}
+            </span>
+            <span>generated {previewProgress.generated}</span>
+            <span>skipped {previewProgress.skipped}</span>
+            <span>errors {previewProgress.errors}</span>
+            {previewProgress.current_mod ? (
+              <span className="truncate text-zinc-400">
+                Current: {previewProgress.current_mod}
+              </span>
+            ) : null}
+            {previewProgress.message ? (
+              <span className={previewProgressMessageClass}>
+                {previewProgress.message}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      )}
+
       {/* Body grid */}
-      <div className="h-[calc(100vh-3rem)] grid grid-cols-[35%_65%]">
+      <div className="flex-1 grid grid-cols-[35%_65%]">
         {/* Left: List */}
         <div className="h-full p-3 overflow-hidden">
           <Card className="h-full overflow-hidden flex flex-col">
@@ -724,54 +854,69 @@ export default function App() {
                 </div>
               )}
               {selectedMod && (
-                <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
-                  {previewBusy && (
-                    <div className="text-sm opacity-60">Loading preview...</div>
-                  )}
-                  {!previewBusy && previewError && (
-                    <div className="text-sm text-red-400">{previewError}</div>
-                  )}
-                  {!previewBusy && !previewError && (
-                    <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-hidden">
-                      {hasVideo ? (
-                        <div className="flex-1 min-h-0 space-y-2">
-                          <div className="text-xs uppercase tracking-wide text-zinc-400">
-                            Video
-                          </div>
-                          <video
-                            key={previewRevision}
-                            controls
-                            preload="metadata"
-                            className="h-full w-full rounded-md border border-zinc-800 bg-black/40"
-                            onError={handleVideoError}
-                          >
-                            {videoBlobUrl ? (
-                              <source
-                                src={videoBlobUrl}
-                                type={selectedVideoMime}
-                              />
-                            ) : null}
-                            Your system can’t play this video.
-                          </video>
-                        </div>
-                      ) : imageSrc ? (
-                        <div className="flex-1 min-h-0 overflow-hidden rounded-md border border-zinc-800 bg-black/40">
-                          <img
-                            key={previewRevision}
-                            src={imageSrc}
-                            alt={`${selectedMod.display_name} preview`}
-                            className="h-full w-full object-contain"
-                            onError={handleImageError}
-                          />
-                        </div>
-                      ) : (
-                        <div className="text-sm opacity-60">
-                          No preview media available.
-                        </div>
-                      )}
+                <ErrorBoundary
+                  fallback={
+                    <div className="text-sm text-red-400">
+                      Failed to render preview.
                     </div>
-                  )}
-                </div>
+                  }
+                >
+                  <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
+                    {previewBusy && (
+                      <div className="text-sm opacity-60">
+                        Loading preview...
+                      </div>
+                    )}
+                    {!previewBusy && previewError && (
+                      <div className="text-sm text-red-400">{previewError}</div>
+                    )}
+                    {!previewBusy && !previewError && (
+                      <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-hidden">
+                        {hasVideo ? (
+                          <div className="flex-1 min-h-0 space-y-2">
+                            <div className="text-xs uppercase tracking-wide text-zinc-400">
+                              Video
+                            </div>
+                            <video
+                              key={previewRevision}
+                              controls
+                              preload="metadata"
+                              className="w-full rounded-md border border-zinc-800 bg-black/40"
+                              onError={handleVideoError}
+                            >
+                              {videoBlobUrl ? (
+                                <source
+                                  src={videoBlobUrl}
+                                  type={selectedVideoMime}
+                                />
+                              ) : selectedVideoPath ? (
+                                <source
+                                  src={convertFileSrc(selectedVideoPath)}
+                                  type={selectedVideoMime}
+                                />
+                              ) : null}
+                              Your system can’t play this video.
+                            </video>
+                          </div>
+                        ) : imageSrc ? (
+                          <div className="flex-1 min-h-0 overflow-hidden rounded-md border border-zinc-800 bg-black/40">
+                            <img
+                              key={previewRevision}
+                              src={imageSrc}
+                              alt={`${selectedMod.display_name} preview`}
+                              className="h-full w-full object-contain"
+                              onError={handleImageError}
+                            />
+                          </div>
+                        ) : (
+                          <div className="text-sm opacity-60">
+                            No preview media available.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </ErrorBoundary>
               )}
             </CardContent>
           </Card>
@@ -814,6 +959,9 @@ export default function App() {
         createPreviewImagesDisabled={previewImagesBusy || previewVideosBusy}
         createPreviewVideosDisabled={previewImagesBusy || previewVideosBusy}
         previewProgress={previewProgress}
+        onCancelPreview={cancelPreviewGeneration}
+        onClearPreviewProgress={clearPreviewProgress}
+        cancelPreviewDisabled={previewCancelRequested}
       />
       <Dialog
         open={purgeConfirmOpen}

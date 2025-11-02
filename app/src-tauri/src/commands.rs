@@ -10,6 +10,8 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
+    sync::atomic::{AtomicBool, Ordering},
+    thread,
 };
 use tauri::{Emitter, Window};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -67,6 +69,9 @@ const DEFAULT_AUTHOR_ALIASES: &[(&str, &str)] = &[
     ("mrmiagi", "MrMiagi"),
     // Add more aliases here as they become known
 ];
+
+static PREVIEW_CANCEL_IMAGE: AtomicBool = AtomicBool::new(false);
+static PREVIEW_CANCEL_VIDEO: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Serialize)]
 pub struct AuthorFolder {
@@ -328,6 +333,13 @@ impl PreviewKind {
     }
 }
 
+fn cancel_flag_for_kind(kind: PreviewKind) -> &'static AtomicBool {
+    match kind {
+        PreviewKind::Image => &PREVIEW_CANCEL_IMAGE,
+        PreviewKind::Video => &PREVIEW_CANCEL_VIDEO,
+    }
+}
+
 fn emit_preview_progress(
     window: &Window,
     kind: PreviewKind,
@@ -404,11 +416,14 @@ fn generate_previews(
     let mods = collect_preview_targets(&conn)?;
     let total = mods.len();
 
+    let cancel_flag = cancel_flag_for_kind(kind);
     let mut summary = PreviewGenerationSummary {
         generated: 0,
         skipped: 0,
         errors: 0,
     };
+    let mut processed_count: usize = 0;
+    let mut cancelled = false;
 
     emit_preview_progress(
         window,
@@ -422,45 +437,66 @@ fn generate_previews(
         None,
         None,
     );
+    println!("[RUST] EMIT: starting generation for {:?}", kind);
 
     for (index, target_mod) in mods.iter().enumerate() {
+        if cancel_flag.load(Ordering::SeqCst) {
+            cancelled = true;
+            println!(
+                "[preview] cancellation requested for {:?}, stopping after {} processed",
+                kind, processed_count
+            );
+            break;
+        }
+
         let folder = Path::new(&target_mod.folder_path);
         let path_display = target_mod.display_name.clone();
         let target = folder.join(kind.target_name());
+        let processed = index + 1;
         if !folder.exists() {
             println!(
                 "[preview] skipping mod id={} display='{}' because folder is missing",
                 target_mod.id, target_mod.display_name
             );
             summary.errors += 1;
+            processed_count = processed;
             emit_preview_progress(
                 window,
                 kind,
                 "running",
                 total,
-                index + 1,
+                processed,
                 summary.generated,
                 summary.skipped,
                 summary.errors,
                 Some(path_display),
                 Some("Folder missing on disk".to_string()),
             );
+            println!(
+                "[RUST] EMIT: progress {}/{} (missing folder)",
+                processed, total
+            );
             continue;
         }
 
         if target.exists() {
             summary.skipped += 1;
+            processed_count = processed;
             emit_preview_progress(
                 window,
                 kind,
                 "running",
                 total,
-                index + 1,
+                processed,
                 summary.generated,
                 summary.skipped,
                 summary.errors,
                 Some(path_display),
                 Some("Preview already exists".to_string()),
+            );
+            println!(
+                "[RUST] EMIT: progress {}/{} (already exists)",
+                processed, total
             );
             continue;
         }
@@ -475,12 +511,16 @@ fn generate_previews(
             kind,
             "running",
             total,
-            index + 1,
+            processed,
             summary.generated,
             summary.skipped,
             summary.errors,
             Some(target_mod.display_name.clone()),
             Some("Starting generator".to_string()),
+        );
+        println!(
+            "[RUST] EMIT: progress {}/{} (starting generator)",
+            processed, total
         );
 
         let mut cmd = Command::new("java");
@@ -519,13 +559,14 @@ fn generate_previews(
                     kind,
                     "error",
                     total,
-                    index,
+                    processed_count,
                     summary.generated,
                     summary.skipped,
                     summary.errors + 1,
                     Some(path_display),
                     Some(msg.clone()),
                 );
+                cancel_flag.store(false, Ordering::SeqCst);
                 return Err(msg);
             }
         };
@@ -579,30 +620,50 @@ fn generate_previews(
             kind,
             "running",
             total,
-            index + 1,
+            processed,
             summary.generated,
             summary.skipped,
             summary.errors,
             Some(target_mod.display_name.clone()),
             Some(message),
         );
+        println!(
+            "[RUST] EMIT: progress {}/{} (post-generation)",
+            processed, total
+        );
+        processed_count = processed;
     }
 
-    let completion_msg = format!(
-        "Completed: generated {} / {} • skipped {} • errors {}",
-        summary.generated, total, summary.skipped, summary.errors
-    );
+    cancel_flag.store(false, Ordering::SeqCst);
+
+    let processed_final = if cancelled { processed_count } else { total };
+    let completion_msg = if cancelled {
+        format!(
+            "Cancelled after processing {} of {} mods • generated {} • skipped {} • errors {}",
+            processed_count, total, summary.generated, summary.skipped, summary.errors
+        )
+    } else {
+        format!(
+            "Completed: generated {} / {} • skipped {} • errors {}",
+            summary.generated, total, summary.skipped, summary.errors
+        )
+    };
+    let final_status = if cancelled { "cancelled" } else { "done" };
     emit_preview_progress(
         window,
         kind,
-        "done",
+        final_status,
         total,
-        total,
+        processed_final,
         summary.generated,
         summary.skipped,
         summary.errors,
         None,
         Some(completion_msg),
+    );
+    println!(
+        "[RUST] EMIT: final status {:?} processed {}/{}",
+        final_status, processed_final, total
     );
 
     Ok(summary)
@@ -722,13 +783,44 @@ pub fn mods_add(new_mod: NewMod) -> Result<i64, String> {
 /* ===========Commands=========== */
 
 #[tauri::command]
-pub fn previews_generate_images(window: Window) -> Result<PreviewGenerationSummary, String> {
-    generate_previews(&window, PreviewKind::Image)
+pub fn previews_generate_images(window: Window) -> Result<(), String> {
+    println!("[RUST] COMMAND START (images)");
+    thread::yield_now();
+    println!("[RUST] YIELDED (images)");
+    PREVIEW_CANCEL_IMAGE.store(false, Ordering::SeqCst);
+    tauri::async_runtime::spawn_blocking(move || {
+        let _ = generate_previews(&window, PreviewKind::Image);
+    });
+    Ok(())
 }
 
 #[tauri::command]
-pub fn previews_generate_videos(window: Window) -> Result<PreviewGenerationSummary, String> {
-    generate_previews(&window, PreviewKind::Video)
+pub fn previews_generate_videos(window: Window) -> Result<(), String> {
+    println!("[RUST] COMMAND START (videos)");
+    thread::yield_now();
+    println!("[RUST] YIELDED (videos)");
+    PREVIEW_CANCEL_VIDEO.store(false, Ordering::SeqCst);
+    tauri::async_runtime::spawn_blocking(move || {
+        let _ = generate_previews(&window, PreviewKind::Video);
+    });
+    Ok(())
+}
+
+#[tauri::command]
+pub fn previews_cancel(kind: String) -> Result<(), String> {
+    match kind.as_str() {
+        "image" => {
+            PREVIEW_CANCEL_IMAGE.store(true, Ordering::SeqCst);
+            println!("[preview] cancel requested for image previews");
+            Ok(())
+        }
+        "video" => {
+            PREVIEW_CANCEL_VIDEO.store(true, Ordering::SeqCst);
+            println!("[preview] cancel requested for video previews");
+            Ok(())
+        }
+        other => Err(format!("Unknown preview cancel kind '{}'.", other)),
+    }
 }
 
 #[tauri::command]
